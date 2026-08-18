@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>貨櫃裝載計算與 3D/2D 視覺規劃系統 (Container Loading Plan 3D)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Three.js Core & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        cargo1: { DEFAULT: '#2563eb', light: '#93c5fd', dark: '#1e40af' }, // Blue
+                        cargo2: { DEFAULT: '#f97316', light: '#fdba74', dark: '#c2410c' }, // Orange
+                        cargo3: { DEFAULT: '#10b981', light: '#6ee7b7', dark: '#047857' }, // Green
+                        containerBg: '#0f172a'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @media print {
+            body { background: white !important; color: black !important; }
+            .no-print { display: none !important; }
+            .print-full-width { width: 100% !important; max-width: none !important; }
+            .print-page-break { page-break-before: always; }
+            .shadow-lg, .shadow-md, .shadow-xl { box-shadow: none !important; }
+            .border-slate-800 { border-color: #cbd5e1 !important; }
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        #three-canvas-container {
+            position: relative;
+            width: 100%;
+            height: 440px;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+        }
+
+        #three-tooltip {
+            position: absolute;
+            display: none;
+            pointer-events: none;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid #3b82f6;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 11px;
+            z-index: 50;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+
+        .pulse-badge {
+            animation: pulse-glow 2s infinite;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.85; transform: scale(1.02); }
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col">
+
+    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 shadow-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="p-2.5 bg-blue-600/20 text-blue-400 rounded-xl border border-blue-500/30">
+                    <i class="fa-solid font-bold fa-truck-ramp-box text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                        貨櫃裝載計算與 3D/2D 視覺規劃系統
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-normal border border-blue-500/30">v3.2 Live Boxes</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Container Loading Optimization with Smart Small Box & Pallet Visualizer</p>
+                </div>
+            </div>
+
+            <!-- Top Actions -->
+            <div class="flex items-center space-x-2 sm:space-x-3 no-print">
+                <button id="toggle-autorotate-btn" onclick="toggleAutoRotate()" class="px-3 py-1.5 text-xs font-medium bg-indigo-900/60 hover:bg-indigo-800 text-indigo-200 rounded-lg transition border border-indigo-700/50 flex items-center gap-1.5">
+                    <i class="fa-solid fa-arrows-spin text-indigo-400" id="autorotate-icon"></i> <span id="autorotate-text">3D 自動旋轉: 開</span>
+                </button>
+                <button id="reset-btn" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition border border-slate-700 flex items-center gap-1.5">
+                    <i class="fa-solid fa-rotate-left"></i> 重置預設
+                </button>
+                <button onclick="window.print()" class="px-3.5 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-lg shadow-emerald-900/20 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-print"></i> 匯出/列印 PDF
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container Layout -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- Dynamic Alert / Warning Banner -->
+        <div id="alert-container" class="hidden space-y-2"></div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            <!-- Weight Metric -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 relative overflow-hidden backdrop-blur-sm">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">總載重量 (Weight)</span>
+                    <i class="fa-solid fa-weight-hanging text-slate-500"></i>
+                </div>
+                <div class="flex items-baseline space-x-1 mb-2">
+                    <span id="kpi-weight-curr" class="text-2xl font-bold text-white">0</span>
+                    <span class="text-xs text-slate-400">/ <span id="kpi-weight-max">26,500</span> kg</span>
+                </div>
+                <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                    <div id="kpi-weight-bar" class="h-full bg-blue-500 transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between text-[11px] text-slate-400 mt-2">
+                    <span>利用率: <span id="kpi-weight-pct" class="font-semibold text-slate-200">0%</span></span>
+                    <span id="kpi-weight-status" class="text-emerald-400">正常</span>
+                </div>
+            </div>
+
+            <!-- Volume CBM Metric -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 relative overflow-hidden backdrop-blur-sm">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">總體積 (Volume CBM)</span>
+                    <i class="fa-solid fa-cube text-slate-500"></i>
+                </div>
+                <div class="flex items-baseline space-x-1 mb-2">
+                    <span id="kpi-cbm-curr" class="text-2xl font-bold text-white">0.00</span>
+                    <span class="text-xs text-slate-400">/ <span id="kpi-cbm-max">76.2</span> m³</span>
+                </div>
+                <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                    <div id="kpi-cbm-bar" class="h-full bg-emerald-500 transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between text-[11px] text-slate-400 mt-2">
+                    <span>容積率: <span id="kpi-cbm-pct" class="font-semibold text-slate-200">0%</span></span>
+                    <span id="kpi-cbm-status" class="text-emerald-400">正常</span>
+                </div>
+            </div>
+
+            <!-- CUFT Metric -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 relative overflow-hidden backdrop-blur-sm">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">總材積 (CUFT)</span>
+                    <i class="fa-solid fa-boxes-stacked text-slate-500"></i>
+                </div>
+                <div class="flex items-baseline space-x-1 mb-2">
+                    <span id="kpi-cuft-curr" class="text-2xl font-bold text-purple-400">0.0</span>
+                    <span class="text-xs text-slate-400">材</span>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-3">
+                    <i class="fa-solid fa-calculator text-slate-500 mr-1"></i>換算係數: 1 m³ ≈ 35.315 材
+                </p>
+            </div>
+
+            <!-- Door Gap Metric -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 relative overflow-hidden backdrop-blur-sm">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">櫃門剩餘空隙 (Door Gap)</span>
+                    <i class="fa-solid fa-ruler-horizontal text-slate-500"></i>
+                </div>
+                <div class="flex items-baseline space-x-1 mb-2">
+                    <span id="kpi-doorgap-curr" class="text-2xl font-bold text-emerald-400">1203</span>
+                    <span class="text-xs text-slate-400">cm</span>
+                </div>
+                <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                    <div id="kpi-length-bar" class="h-full bg-amber-500 transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between text-[11px] text-slate-400 mt-2">
+                    <span>佔用長度: <span id="kpi-length-used" class="font-semibold text-slate-200">0 cm</span></span>
+                    <span id="kpi-doorgap-status" class="text-emerald-400">可安全關門</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls & Visualization Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Controls Column (4 cols) -->
+            <div class="lg:col-span-4 space-y-6 no-print">
+                
+                <!-- Container Specs Selector -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+                    <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
+                        <i class="fa-solid fa-container-storage text-blue-400"></i> 1. 選擇貨櫃規格
+                    </h2>
+
+                    <div>
+                        <label for="container-preset" class="block text-xs font-medium text-slate-400 mb-1">貨櫃預設型號 Preset</label>
+                        <select id="container-preset" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition">
+                            <option value="40HQ" selected>40呎高櫃 (40ft HQ) - 1203x235x269 cm</option>
+                            <option value="40GP">40呎標準櫃 (40ft GP) - 1203x235x239 cm</option>
+                            <option value="20GP">20呎標準櫃 (20ft GP) - 590x235x239 cm</option>
+                        </select>
+                    </div>
+
+                    <!-- Container Detailed Info Card -->
+                    <div class="bg-slate-950/60 rounded-xl p-3 border border-slate-800 text-xs space-y-1.5">
+                        <div class="flex justify-between text-slate-300">
+                            <span class="text-slate-400">內部淨尺寸 (L x W x H):</span>
+                            <span id="spec-dims" class="font-mono text-blue-400">1203 x 235 x 269 cm</span>
+                        </div>
+                        <div class="flex justify-between text-slate-300">
+                            <span class="text-slate-400">最大容積 (Max CBM):</span>
+                            <span id="spec-cbm" class="font-mono text-emerald-400">76.2 m³</span>
+                        </div>
+                        <div class="flex justify-between text-slate-300">
+                            <span class="text-slate-400">最大淨載重 (Max Weight):</span>
+                            <span id="spec-weight" class="font-mono text-amber-400">26,500 kg</span>
+                        </div>
+                    </div>
+
+                    <!-- Overhead Stacking Toggle Switch -->
+                    <div class="pt-2 border-t border-slate-800">
+                        <label class="flex items-center justify-between cursor-pointer p-2 rounded-xl bg-slate-950/80 hover:bg-slate-950 transition border border-slate-800">
+                            <div class="flex items-center gap-2">
+                                <i class="fa-solid fa-layer-group text-emerald-400"></i>
+                                <div>
+                                    <div class="text-xs font-semibold text-slate-200">頂部空隙優先收納</div>
+                                    <div class="text-[10px] text-slate-400">小箱貨自動轉向塞入棧板上方淨空區</div>
+                                </div>
+                            </div>
+                            <input type="checkbox" id="toggle-overhead" class="sr-only peer" checked>
+                            <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500 relative"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Cargo Specification Inputs Card -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                        <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
+                            <i class="fa-solid fa-boxes-packing text-emerald-400"></i> 2. 貨型與數量設定 (Cargo Inputs)
+                        </h2>
+                        <!-- Dual Quick-Add Buttons for Pallets & Small Boxes -->
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="addCustomCargo('pallet')" class="px-2.5 py-1 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-lg shadow transition flex items-center gap-1">
+                                <i class="fa-solid fa-pallet"></i> + 棧板
+                            </button>
+                            <button onclick="addCustomCargo('box')" class="px-2.5 py-1 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow transition flex items-center gap-1">
+                                <i class="fa-solid fa-box-open"></i> + 小箱貨
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Cargo Input Forms Container -->
+                    <div id="cargo-inputs-container" class="space-y-3">
+                        <!-- Cargo Input Forms injected dynamically by JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- 3D Interactive Container Visualization Panel -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+                    <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-800 pb-3">
+                        <div class="flex items-center gap-2">
+                            <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
+                                <i class="fa-solid fa-cube text-blue-400"></i> 3D 立體互動排櫃視圖 (Interactive 3D Container)
+                            </h2>
+                            <span class="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 pulse-badge">
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> 即時動態模擬中
+                            </span>
+                        </div>
+                        
+                        <!-- 3D Camera Angles Control Buttons -->
+                        <div class="flex flex-wrap gap-1.5 text-xs no-print">
+                            <button onclick="setCameraView('iso')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 font-medium border border-slate-700 transition">
+                                <i class="fa-solid fa-cube mr-1"></i> 3D 視角
+                            </button>
+                            <button onclick="setCameraView('top')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 font-medium border border-slate-700 transition">
+                                <i class="fa-solid fa-arrow-down-long mr-1"></i> 俯視 (Top)
+                            </button>
+                            <button onclick="setCameraView('side')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 font-medium border border-slate-700 transition">
+                                <i class="fa-solid fa-arrow-right-long mr-1"></i> 側視 (Side)
+                            </button>
+                            <button onclick="setCameraView('front')" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 font-medium border border-slate-700 transition">
+                                <i class="fa-solid fa-door-open mr-1"></i> 櫃門正視
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 3D Canvas Container -->
+                    <div id="three-canvas-container" class="w-full border border-slate-800 shadow-inner">
+                        <div id="three-tooltip"></div>
+                        <div class="absolute bottom-3 right-3 text-[10px] text-slate-400 bg-slate-950/80 px-2.5 py-1 rounded-md border border-slate-800 pointer-events-none">
+                            <i class="fa-solid fa-hand-pointer mr-1 text-blue-400"></i> 左鍵旋轉 / 右鍵平移 / 滾輪縮放 / 滑鼠懸停看實體細節
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-6">
+                    
+                    <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-800 pb-3">
+                        <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
+                            <i class="fa-solid fa-map text-purple-400"></i> 2D 平面與側視圖面 (Detailed 2D Grid Blueprint)
+                        </h2>
+                        
+                        <!-- Dynamic Color Legend -->
+                        <div id="svg-color-legend" class="flex flex-wrap items-center gap-3 text-xs">
+                            <!-- Dynamic legend rendered via JS -->
+                        </div>
+                    </div>
+
+                    <!-- 1. Top-Down Plan View -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center text-xs text-slate-400 font-semibold">
+                            <span><i class="fa-solid fa-eye text-slate-500"></i> 平面俯視圖 (Top-Down View) - 併排陣列網格 (寬 235 cm)</span>
+                            <span class="text-[11px] text-slate-500">深處 Front Wall ➔ 櫃門 Rear Door</span>
+                        </div>
+                        <div class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 overflow-x-auto custom-scrollbar">
+                            <div id="svg-top-container" class="min-w-[650px] w-full flex justify-center">
+                                <!-- Top View SVG injected dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Side Elevation View -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center text-xs text-slate-400 font-semibold">
+                            <span><i class="fa-solid fa-table-cells-large text-slate-500"></i> 側視高度圖 (Side Elevation) - 櫃高 <span id="label-side-height">269</span> cm</span>
+                            <span class="text-[11px] text-slate-500">實體箱貨/棧板堆疊層數與頂部淨空剖面</span>
+                        </div>
+                        <div class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 overflow-x-auto custom-scrollbar">
+                            <div id="svg-side-container" class="min-w-[650px] w-full flex justify-center">
+                                <!-- Side View SVG injected dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Section Breakdown Table (7 cols) -->
+            <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+                <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
+                    <i class="fa-solid fa-list-check text-blue-400"></i> 區段排卡明細表 (Section Breakdown)
+                </h3>
+                
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-950 text-slate-400 border-b border-slate-800 uppercase font-semibold">
+                            <tr>
+                                <th class="p-2.5">貨型 Item</th>
+                                <th class="p-2.5">類別</th>
+                                <th class="p-2.5">尺寸 (cm)</th>
+                                <th class="p-2.5">裝載數</th>
+                                <th class="p-2.5">結構 (排x列x層)</th>
+                                <th class="p-2.5">佔用長度</th>
+                                <th class="p-2.5 text-right">總重量 (kg)</th>
+                                <th class="p-2.5 text-right">總體積 (CBM)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="breakdown-tbody" class="divide-y divide-slate-800">
+                            <!-- Rows injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Mathematical Limits & Formulas Verification (5 cols) -->
+            <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+                <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wide flex items-center gap-2">
+                    <i class="fa-solid fa-square-root-variable text-purple-400"></i> 數學驗算與極限公式 (Math Validation)
+                </h3>
+
+                <div class="space-y-3 text-xs font-mono bg-slate-950 p-4 rounded-xl border border-slate-800">
+                    
+                    <!-- Formula 1: Door Gap -->
+                    <div class="p-2 bg-slate-900/60 rounded border border-slate-800/80">
+                        <div class="text-slate-400 font-sans font-semibold mb-1">1. 門隙剩餘公式 (Door Gap):</div>
+                        <div class="text-emerald-400 font-bold">L_gap = L_container - L_used</div>
+                        <div id="math-doorgap-calc" class="text-slate-300 text-[11px] mt-1">L_gap = 1203 - 800 = 403 cm</div>
+                    </div>
+
+                    <!-- Formula 2: Overhead Gap -->
+                    <div class="p-2 bg-slate-900/60 rounded border border-slate-800/80">
+                        <div class="text-slate-400 font-sans font-semibold mb-1">2. 棧板頂部閒置淨高 (Overhead Gap):</div>
+                        <div class="text-purple-400 font-bold">H_overhead = H_container - H_pallet</div>
+                        <div id="math-overhead-calc" class="text-slate-300 text-[11px] mt-1">H_overhead = 269 - 180 = 89 cm</div>
+                    </div>
+
+                    <!-- Formula 3: Volume & Weight Total -->
+                    <div class="p-2 bg-slate-900/60 rounded border border-slate-800/80">
+                        <div class="text-slate-400 font-sans font-semibold mb-1">3. 總體積與極限驗算 (CBM & Weight):</div>
+                        <div id="math-cbm-calc" class="text-slate-300 text-[11px]">CBM = ∑ (Count × L × W × H)</div>
+                        <div id="math-weight-calc" class="text-slate-300 text-[11px] mt-0.5">Weight = ∑ (Count × UnitWeight)</div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 border-t border-slate-800 py-4 mt-8 no-print text-center text-xs text-slate-500">
+        <div class="max-w-7xl mx-auto px-4">
+            Container Loading Optimizer System &bull; Live Box & Pallet 3D Visualizer &bull; Responsive & Print Ready
+        </div>
+    </footer>
+
+    <script>
+        // Container Presets Database
+        const CONTAINER_DATABASE = {
+            '40HQ': { name: '40呎高櫃 (40ft HQ)', L: 1203, W: 235, H: 269, maxWeight: 26500, maxCBM: 76.2 },
+            '40GP': { name: '40呎標準櫃 (40ft GP)', L: 1203, W: 235, H: 239, maxWeight: 26500, maxCBM: 67.7 },
+            '20GP': { name: '20呎標準櫃 (20ft GP)', L: 590, W: 235, H: 239, maxWeight: 28000, maxCBM: 33.2 }
+        };
+
+        // Palette Colors for Cargos
+        const PALETTE_COLORS = [
+            { hex: '#2563eb', three: 0x2563eb, name: '藍色' },
+            { hex: '#f97316', three: 0xf97316, name: '橘色' },
+            { hex: '#10b981', three: 0x10b981, name: '綠色' },
+            { hex: '#a855f7', three: 0xa855f7, name: '紫色' },
+            { hex: '#ec4899', three: 0xec4899, name: '粉色' },
+            { hex: '#eab308', three: 0xeab308, name: '黃色' },
+            { hex: '#06b6d4', three: 0x06b6d4, name: '青色' }
+        ];
+
+        // Default Simulated Data loaded immediately on start
+        let cargoItems = [
+            { id: 'cargo1', type: 'pallet', name: 'Cargo 1 (棧板 A)', L: 100, W: 90, H: 60, weight: 500, qty: 16, color: PALETTE_COLORS[0], isCustom: false },
+            { id: 'cargo2', type: 'pallet', name: 'Cargo 2 (棧板 B)', L: 150, W: 110, H: 180, weight: 150, qty: 8, color: PALETTE_COLORS[1], isCustom: false },
+            { id: 'cargo3', type: 'box', name: 'Cargo 3 (小箱貨 C)', L: 90, W: 50, H: 15, weight: 5, qty: 120, color: PALETTE_COLORS[2], isCustom: false }
+        ];
+
+        let cargoCounter = 4;
+        let scene, camera, renderer, controls, containerGroup, boxesGroup;
+        let raycaster, mouse, hoveredMesh = null;
+        let autoRotate = true;
+
+        // Render live editable input forms
+        function renderCargoInputForms() {
+            const container = document.getElementById('cargo-inputs-container');
+            if (!container) return;
+
+            container.innerHTML = cargoItems.map((cargo, index) => {
+                const borderClass = cargo.type === 'box' ? 'border-emerald-500' : 'border-blue-500';
+                const isBox = cargo.type === 'box';
+                
+                return `
+                    <div class="p-3 bg-slate-950/80 rounded-xl border-l-4 ${borderClass} space-y-2 relative group transition-all duration-200 hover:border-l-8">
+                        <div class="flex justify-between items-center gap-2">
+                            <div class="flex items-center gap-2 flex-grow">
+                                <span class="w-3.5 h-3.5 rounded-full flex-shrink-0 shadow-sm" style="background-color: ${cargo.color.hex}"></span>
+                                <!-- Badge for Box vs Pallet -->
+                                <span class="text-[10px] px-1.5 py-0.5 rounded-md font-semibold flex items-center gap-1 ${isBox ? 'bg-emerald-950/90 text-emerald-400 border border-emerald-800/80' : 'bg-blue-950/90 text-blue-400 border border-blue-800/80'}">
+                                    <i class="fa-solid ${isBox ? 'fa-box-open' : 'fa-pallet'} text-[9px]"></i> ${isBox ? '小箱貨' : '棧板'}
+                                </span>
+                                <input type="text" value="${cargo.name}" oninput="updateCargoField('${cargo.id}', 'name', this.value)" 
+                                    class="bg-transparent text-xs font-bold text-slate-200 border-b border-transparent hover:border-slate-700 focus:border-blue-500 focus:outline-none w-full">
+                            </div>
+                            ${cargo.isCustom ? `
+                                <button onclick="removeCustomCargo('${cargo.id}')" title="刪除此貨型" class="text-slate-500 hover:text-red-400 text-xs px-1.5 py-0.5 rounded transition">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+
+                        <!-- Editable L x W x H and Weight -->
+                        <div class="grid grid-cols-4 gap-1.5 text-[11px] text-slate-400">
+                            <div>
+                                <label class="block text-[10px] text-slate-500">長 L (cm)</label>
+                                <input type="number" min="1" value="${cargo.L}" oninput="updateCargoField('${cargo.id}', 'L', parseFloat(this.value) || 0)" 
+                                    class="w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-slate-200 font-mono text-center focus:outline-none focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-slate-500">寬 W (cm)</label>
+                                <input type="number" min="1" value="${cargo.W}" oninput="updateCargoField('${cargo.id}', 'W', parseFloat(this.value) || 0)" 
+                                    class="w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-slate-200 font-mono text-center focus:outline-none focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-slate-500">高 H (cm)</label>
+                                <input type="number" min="1" value="${cargo.H}" oninput="updateCargoField('${cargo.id}', 'H', parseFloat(this.value) || 0)" 
+                                    class="w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-slate-200 font-mono text-center focus:outline-none focus:border-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-slate-500">單重 (kg)</label>
+                                <input type="number" min="0" value="${cargo.weight}" oninput="updateCargoField('${cargo.id}', 'weight', parseFloat(this.value) || 0)" 
+                                    class="w-full bg-slate-900 border border-slate-700 rounded px-1.5 py-0.5 text-slate-200 font-mono text-center focus:outline-none focus:border-blue-500">
+                            </div>
+                        </div>
+
+                        <!-- Dynamic Quantity Control -->
+                        <div class="flex items-center justify-between gap-3 pt-1 border-t border-slate-900">
+                            <span class="text-xs text-slate-400">需求數量 (${isBox ? '箱' : '件'}):</span>
+                            <div class="flex items-center space-x-1">
+                                <button class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-200 rounded text-xs font-bold" onclick="adjustCargoQty('${cargo.id}', -1)">-</button>
+                                <input type="number" min="0" value="${cargo.qty}" oninput="updateCargoField('${cargo.id}', 'qty', parseInt(this.value) || 0)" 
+                                    class="w-16 bg-slate-900 text-center border border-slate-700 rounded py-0.5 text-xs font-bold text-white focus:outline-none focus:border-blue-500 font-mono">
+                                <button class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-slate-200 rounded text-xs font-bold" onclick="adjustCargoQty('${cargo.id}', 1)">+</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function addCustomCargo(type = 'pallet') {
+            const letter = String.fromCharCode(64 + cargoCounter);
+            const colorObj = PALETTE_COLORS[(cargoCounter - 1) % PALETTE_COLORS.length];
+            const isBox = type === 'box';
+
+            cargoItems.push({
+                id: `cargo_${Date.now()}`,
+                type: isBox ? 'box' : 'pallet',
+                name: isBox ? `Cargo ${cargoCounter} (小箱貨 ${letter})` : `Cargo ${cargoCounter} (棧板 ${letter})`,
+                L: isBox ? 40 : 120,
+                W: isBox ? 30 : 80,
+                H: isBox ? 25 : 100,
+                weight: isBox ? 10 : 200,
+                qty: isBox ? 60 : 10,
+                color: colorObj,
+                isCustom: true
+            });
+
+            cargoCounter++;
+            renderCargoInputForms();
+            updateUI(); // Live immediate dynamic update
+        }
+
+        function removeCustomCargo(id) {
+            cargoItems = cargoItems.filter(item => item.id !== id);
+            renderCargoInputForms();
+            updateUI();
+        }
+
+        function updateCargoField(id, field, value) {
+            const item = cargoItems.find(i => i.id === id);
+            if (item) {
+                item[field] = value;
+                updateUI(); // Immediate real-time update
+            }
+        }
+
+        function adjustCargoQty(id, delta) {
+            const item = cargoItems.find(i => i.id === id);
+            if (item) {
+                item.qty = Math.max(0, (item.qty || 0) + delta);
+                renderCargoInputForms();
+                updateUI();
+            }
+        }
+
+        function toggleAutoRotate() {
+            autoRotate = !autoRotate;
+            if (controls) controls.autoRotate = autoRotate;
+            const btnText = document.getElementById('autorotate-text');
+            if (btnText) btnText.textContent = `3D 自動旋轉: ${autoRotate ? '開' : '關'}`;
+        }
+
+        function init3DScene() {
+            const containerEl = document.getElementById('three-canvas-container');
+            if (!containerEl) return;
+
+            scene = new THREE.Scene();
+
+            camera = new THREE.PerspectiveCamera(45, containerEl.clientWidth / containerEl.clientHeight, 1, 5000);
+            camera.position.set(1500, 1000, 1500);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(containerEl.clientWidth, containerEl.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            containerEl.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.autoRotate = autoRotate;
+            controls.autoRotateSpeed = 1.2;
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.85);
+            dirLight.position.set(1000, 1500, 1000);
+            scene.add(dirLight);
+
+            containerGroup = new THREE.Group();
+            boxesGroup = new THREE.Group();
+            scene.add(containerGroup);
+            scene.add(boxesGroup);
+
+            // Raycaster for Hover details
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            const tooltipEl = document.getElementById('three-tooltip');
+
+            renderer.domElement.addEventListener('mousemove', (event) => {
+                const rect = renderer.domElement.getBoundingClientRect();
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(boxesGroup.children, true);
+
+                if (intersects.length > 0) {
+                    let mesh = intersects[0].object;
+                    if (mesh.parent && mesh.parent !== boxesGroup) mesh = mesh.parent; // group handle
+                    
+                    if (mesh && mesh.userData && mesh.userData.title) {
+                        const data = mesh.userData;
+                        tooltipEl.style.display = 'block';
+                        tooltipEl.style.left = `${event.clientX - rect.left + 15}px`;
+                        tooltipEl.style.top = `${event.clientY - rect.top - 15}px`;
+                        tooltipEl.innerHTML = `
+                            <div class="font-bold text-blue-400 text-xs">${data.title}</div>
+                            <div class="text-[10px] text-slate-300 mt-0.5">編號: ${data.id}</div>
+                            <div class="text-[10px] text-slate-300">尺寸型態: ${data.isBox ? '📦 小箱貨' : '🪵 棧板'}</div>
+                            <div class="text-[10px] text-slate-300">結構: 第 ${data.row} 排 / 列 ${data.col} / 第 ${data.layer} 層</div>
+                            <div class="text-[10px] text-emerald-400 font-mono font-bold mt-0.5">單重: ${data.weight}</div>
+                        `;
+                        return;
+                    }
+                }
+                tooltipEl.style.display = 'none';
+            });
+
+            // Window Resize
+            window.addEventListener('resize', () => {
+                if (!containerEl) return;
+                camera.aspect = containerEl.clientWidth / containerEl.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(containerEl.clientWidth, containerEl.clientHeight);
+            });
+
+            // Continuous Animation Loop
+            function animate() {
+                requestAnimationFrame(animate);
+                if (controls) controls.update();
+                if (renderer && scene && camera) renderer.render(scene, camera);
+            }
+            animate();
+        }
+
+        function setCameraView(view) {
+            if (!camera || !controls) return;
+            const target = new THREE.Vector3(600, 120, 0);
+            controls.target.copy(target);
+
+            if (view === 'iso') {
+                camera.position.set(1500, 1000, 1500);
+            } else if (view === 'top') {
+                camera.position.set(600, 2200, 0.1);
+            } else if (view === 'side') {
+                camera.position.set(600, 120, 1800);
+            } else if (view === 'front') {
+                camera.position.set(2000, 120, 0);
+            }
+            controls.update();
+        }
+
+        function calculateLoadingPlan() {
+            const presetKey = document.getElementById('container-preset').value;
+            const container = CONTAINER_DATABASE[presetKey];
+            const enableOverhead = document.getElementById('toggle-overhead').checked;
+
+            const cargoResults = [];
+            let totalLengthUsed = 0;
+            let totalWeight = 0;
+            let totalCBM = 0;
+
+            // Separate Pallets and Box Cargos
+            const palletCargos = cargoItems.filter(c => c.type === 'pallet');
+            
+            // Find primary pallet for overhead stacking (e.g. Cargo 2 or taller pallet)
+            let primaryPalletRef = palletCargos.find(c => c.id === 'cargo2') || palletCargos.find(c => c.H > 120) || palletCargos[0] || null;
+
+            let totalPalletRowsForOverhead = 0;
+            if (primaryPalletRef && primaryPalletRef.qty > 0) {
+                const primaryCols = Math.max(1, Math.floor(container.W / primaryPalletRef.W));
+                totalPalletRowsForOverhead = Math.ceil(primaryPalletRef.qty / primaryCols);
+            }
+
+            let availablePalletRows = totalPalletRowsForOverhead;
+
+            cargoItems.forEach(item => {
+                let overheadQty = 0;
+                let overheadLayers = 0;
+                let subRowsOverhead = 0;
+                let colsOverhead = 0;
+
+                // Calculate overhead placement if enabled and space permits
+                if (enableOverhead && item.type === 'box' && primaryPalletRef && primaryPalletRef.qty > 0 && item.qty > 0 && availablePalletRows > 0) {
+                    const freeHeight = container.H - primaryPalletRef.H;
+                    overheadLayers = Math.floor(freeHeight / item.H);
+                    
+                    if (overheadLayers > 0) {
+                        subRowsOverhead = Math.floor(primaryPalletRef.L / item.W);
+                        colsOverhead = Math.floor(container.W / item.L);
+                        
+                        const capPerPalletRow = subRowsOverhead * colsOverhead * overheadLayers;
+                        if (capPerPalletRow > 0) {
+                            const neededRows = Math.ceil(item.qty / capPerPalletRow);
+                            const usedRows = Math.min(availablePalletRows, neededRows);
+                            overheadQty = Math.min(item.qty, usedRows * capPerPalletRow);
+                            availablePalletRows = Math.max(0, availablePalletRows - usedRows);
+                        }
+                    }
+                }
+
+                const effectiveQtyGround = Math.max(0, item.qty - overheadQty);
+
+                // Ground placement calculations
+                let colsPerRow = Math.max(1, Math.floor(container.W / item.W));
+                let layers = Math.max(1, Math.floor(container.H / item.H));
+                
+                if (item.type === 'box') {
+                    const rotCols = Math.floor(container.W / item.L);
+                    if (rotCols > colsPerRow) {
+                        colsPerRow = rotCols;
+                    }
+                }
+
+                const capacityPerRow = colsPerRow * layers;
+                const rows = effectiveQtyGround > 0 ? Math.ceil(effectiveQtyGround / capacityPerRow) : 0;
+                const length = rows * item.L;
+
+                const cbm = (item.qty * item.L * item.W * item.H) / 1000000;
+                const weightTotal = item.qty * item.weight;
+
+                totalLengthUsed += length;
+                totalWeight += weightTotal;
+                totalCBM += cbm;
+
+                cargoResults.push({
+                    ...item,
+                    overheadQty,
+                    overheadLayers,
+                    subRowsOverhead,
+                    colsOverhead,
+                    effectiveQtyGround,
+                    colsPerRow,
+                    layers,
+                    capacityPerRow,
+                    rows,
+                    length,
+                    cbm,
+                    weightTotal
+                });
+            });
+
+            // Match primaryPallet object reference cleanly to the one in cargoResults
+            const primaryPallet = primaryPalletRef ? cargoResults.find(c => c.id === primaryPalletRef.id) : null;
+
+            const doorGap = container.L - totalLengthUsed;
+            const totalCUFT = totalCBM * 35.3147;
+
+            return {
+                container,
+                cargoResults,
+                primaryPallet,
+                totalLengthUsed, doorGap,
+                totalWeight, totalCBM, totalCUFT,
+                enableOverhead
+            };
+        }
+
+        function render3DContainerAndCargo(plan) {
+            if (!scene) return;
+
+            while(containerGroup.children.length > 0) {
+                containerGroup.remove(containerGroup.children[0]);
+            }
+            while(boxesGroup.children.length > 0) {
+                boxesGroup.remove(boxesGroup.children[0]);
+            }
+
+            const { L, W, H } = plan.container;
+
+            // 1. Container Floor Base
+            const floorGeo = new THREE.BoxGeometry(L, 4, W);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
+            const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+            floorMesh.position.set(L / 2, -2, 0);
+            containerGroup.add(floorMesh);
+
+            // 2. Container Shell Wireframe
+            const containerBoxGeo = new THREE.BoxGeometry(L, H, W);
+            const wireGeo = new THREE.EdgesGeometry(containerBoxGeo);
+            const wireMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 2 });
+            const wireframe = new THREE.LineSegments(wireGeo, wireMat);
+            wireframe.position.set(L / 2, H / 2, 0);
+            containerGroup.add(wireframe);
+
+            // Front wall marker
+            const frontWallGeo = new THREE.PlaneGeometry(W, H);
+            const frontWallMat = new THREE.MeshBasicMaterial({ color: 0x3b82f6, side: THREE.DoubleSide, transparent: true, opacity: 0.2 });
+            const frontWall = new THREE.Mesh(frontWallGeo, frontWallMat);
+            frontWall.rotation.y = Math.PI / 2;
+            frontWall.position.set(0, H / 2, 0);
+            containerGroup.add(frontWall);
+
+            // Rear door outline
+            const rearDoorGeo = new THREE.EdgesGeometry(new THREE.PlaneGeometry(W, H));
+            const rearDoorMat = new THREE.LineDashedMaterial({ color: 0xef4444, dashSize: 10, gapSize: 5 });
+            const rearDoor = new THREE.LineSegments(rearDoorGeo, rearDoorMat);
+            rearDoor.computeLineDistances();
+            rearDoor.rotation.y = Math.PI / 2;
+            rearDoor.position.set(L, H / 2, 0);
+            containerGroup.add(rearDoor);
+
+            // Helper to render individual 3D boxes or pallets
+            function add3DBoxMesh(x, y, z, boxL, boxH, boxW, colorHex, infoData, isBox = false) {
+                const boxGeo = new THREE.BoxGeometry(boxL - 1, boxH - 1, boxW - 1);
+                const boxMat = new THREE.MeshStandardMaterial({
+                    color: colorHex,
+                    roughness: isBox ? 0.4 : 0.2,
+                    metalness: isBox ? 0.0 : 0.1
+                });
+                const boxMesh = new THREE.Mesh(boxGeo, boxMat);
+                boxMesh.position.set(x + boxL / 2, y + boxH / 2, z + boxW / 2);
+                boxMesh.userData = { ...infoData, isBox };
+
+                // White crisp border outline
+                const edges = new THREE.EdgesGeometry(boxGeo);
+                const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 1, transparent: true, opacity: 0.6 });
+                const line = new THREE.LineSegments(edges, lineMat);
+                boxMesh.add(line);
+
+                // If it's a pallet, draw thin wooden base underneath
+                if (!isBox) {
+                    const palletBaseGeo = new THREE.BoxGeometry(boxL - 2, 8, boxW - 2);
+                    const palletBaseMat = new THREE.MeshStandardMaterial({ color: 0x854d0e, roughness: 0.9 });
+                    const palletBase = new THREE.Mesh(palletBaseGeo, palletBaseMat);
+                    palletBase.position.set(0, -boxH / 2 + 4, 0);
+                    boxMesh.add(palletBase);
+                }
+
+                boxesGroup.add(boxMesh);
+            }
+
+            let currentX = 0;
+
+            // Render all cargo items dynamically
+            plan.cargoResults.forEach((cargo) => {
+                if (cargo.qty <= 0) return;
+
+                // 1. Primary Pallet & its Overhead Boxes
+                if (plan.primaryPallet && cargo.id === plan.primaryPallet.id) {
+                    let placedPallets = 0;
+
+                    for (let r = 0; r < cargo.rows; r++) {
+                        const startX = currentX + r * cargo.L;
+                        for (let c = 0; c < cargo.colsPerRow; c++) {
+                            if (placedPallets >= cargo.qty) break;
+                            const startZ = -W / 2 + 10 + c * cargo.W;
+                            add3DBoxMesh(startX, 0, startZ, cargo.L, cargo.H, cargo.W, cargo.color.three, {
+                                title: cargo.name, id: `#${placedPallets + 1}`, row: r + 1, col: c + 1, layer: 1, weight: `${cargo.weight}kg`
+                            }, false);
+                            placedPallets++;
+                        }
+                    }
+
+                    // Render overhead boxes for any box cargo that has overheadQty > 0
+                    let overheadStartX = currentX;
+                    plan.cargoResults.filter(c => c.type === 'box' && c.overheadQty > 0).forEach(boxCargo => {
+                        let placedOverhead = 0;
+                        const startYOverhead = cargo.H;
+                        const subL = boxCargo.W;
+                        const subW = boxCargo.L;
+                        const subH = boxCargo.H;
+
+                        for (let r = 0; r < cargo.rows; r++) {
+                            const palletX = overheadStartX + r * cargo.L;
+                            for (let sr = 0; sr < boxCargo.subRowsOverhead; sr++) {
+                                const boxX = palletX + sr * subL;
+                                for (let sc = 0; sc < boxCargo.colsOverhead; sc++) {
+                                    const boxZ = -W / 2 + 15 + sc * subW;
+                                    for (let sl = 0; sl < boxCargo.overheadLayers; sl++) {
+                                        if (placedOverhead >= boxCargo.overheadQty) break;
+                                        add3DBoxMesh(boxX, startYOverhead + sl * subH, boxZ, subL, subH, subW, boxCargo.color.three, {
+                                            title: `${boxCargo.name} (頂部跨疊)`, id: `Overhead-#${placedOverhead + 1}`, row: `棧板排 ${r+1}`, col: sc + 1, layer: sl + 1, weight: `${boxCargo.weight}kg`
+                                        }, true);
+                                        placedOverhead++;
+                                    }
+                                }
+                            }
+                        }
+                    });
+
+                    if (cargo.rows > 0) currentX += cargo.length;
+                } else {
+                    // Standard ground stacking for other items (Pallets or Small Boxes on ground)
+                    if (cargo.effectiveQtyGround > 0 && cargo.rows > 0) {
+                        let placed = 0;
+                        for (let r = 0; r < cargo.rows; r++) {
+                            const startX = currentX + r * cargo.L;
+                            for (let c = 0; c < cargo.colsPerRow; c++) {
+                                const startZ = -W / 2 + 10 + c * cargo.W;
+                                for (let l = 0; l < cargo.layers; l++) {
+                                    if (placed >= cargo.effectiveQtyGround) break;
+                                    add3DBoxMesh(startX, l * cargo.H, startZ, cargo.L, cargo.H, cargo.W, cargo.color.three, {
+                                        title: cargo.name, id: `#${placed + 1}`, row: r + 1, col: c + 1, layer: l + 1, weight: `${cargo.weight}kg`
+                                    }, cargo.type === 'box');
+                                    placed++;
+                                }
+                            }
+                        }
+                        currentX += cargo.length;
+                    }
+                }
+            });
+        }
+
+        function renderSVGViews(plan) {
+            const { container } = plan;
+
+            const svgWidth = 800;
+            const svgHeightTop = 210;
+            const svgHeightSide = 220;
+
+            const marginX = 60;
+            const marginY = 35;
+            const drawWidth = svgWidth - (2 * marginX);
+            const scaleX = drawWidth / container.L;
+
+            // 1. TOP VIEW SVG
+            const drawHeightTop = 130;
+            const scaleYTop = drawHeightTop / container.W;
+
+            let svgTopContent = `
+                <rect x="${marginX}" y="${marginY}" width="${drawWidth}" height="${drawHeightTop}" fill="#1e293b" stroke="#64748b" stroke-width="2" rx="4" />
+                <line x1="${marginX}" y1="${marginY + drawHeightTop/2}" x2="${marginX + drawWidth}" y2="${marginY + drawHeightTop/2}" stroke="#334155" stroke-dasharray="3,3" stroke-width="1" />
+                <line x1="${marginX}" y1="${marginY-10}" x2="${marginX}" y2="${marginY + drawHeightTop + 10}" stroke="#3b82f6" stroke-width="3" />
+                <text x="${marginX-8}" y="${marginY + drawHeightTop/2}" fill="#94a3b8" font-size="10" text-anchor="end" font-weight="bold">最深處 Front</text>
+                <line x1="${marginX + drawWidth}" y1="${marginY-10}" x2="${marginX + drawWidth}" y2="${marginY + drawHeightTop + 10}" stroke="#ef4444" stroke-dasharray="4,4" stroke-width="2" />
+                <text x="${marginX + drawWidth + 8}" y="${marginY + drawHeightTop/2}" fill="#f87171" font-size="10" text-anchor="start" font-weight="bold">櫃門 Rear Door</text>
+            `;
+
+            let currentX = marginX;
+
+            plan.cargoResults.forEach((cargo) => {
+                if (cargo.qty <= 0) return;
+
+                if (plan.primaryPallet && cargo.id === plan.primaryPallet.id) {
+                    if (cargo.rows <= 0) return;
+                    const rowW = cargo.L * scaleX;
+                    const colH = cargo.W * scaleYTop;
+
+                    for (let r = 0; r < cargo.rows; r++) {
+                        const x = currentX + r * rowW;
+                        for (let c = 0; c < cargo.colsPerRow; c++) {
+                            const y = marginY + 4 + c * colH;
+                            svgTopContent += `
+                                <rect x="${x + 1}" y="${y}" width="${rowW - 2}" height="${colH - 1}" fill="${cargo.color.hex}" opacity="0.85" rx="2" stroke="#ffffff" stroke-width="0.8" />
+                            `;
+                        }
+                        
+                        const overheadBoxes = plan.cargoResults.filter(c => c.type === 'box' && c.overheadQty > 0);
+                        let badgeText = cargo.name.split(' ')[0];
+                        if (overheadBoxes.length > 0) {
+                            badgeText += ` (+頂部跨疊)`;
+                        }
+
+                        svgTopContent += `
+                            <text x="${x + rowW/2}" y="${marginY + drawHeightTop/2 + 3}" fill="#ffffff" font-size="9" font-weight="bold" text-anchor="middle">${badgeText}</text>
+                        `;
+                    }
+                    currentX += cargo.length * scaleX;
+                } else if (cargo.effectiveQtyGround > 0 && cargo.rows > 0) {
+                    const rowW = cargo.L * scaleX;
+                    const colH = cargo.W * scaleYTop;
+
+                    for (let r = 0; r < cargo.rows; r++) {
+                        const x = currentX + r * rowW;
+                        for (let c = 0; c < cargo.colsPerRow; c++) {
+                            const y = marginY + 4 + c * colH;
+                            svgTopContent += `
+                                <rect x="${x + 1}" y="${y}" width="${rowW - 2}" height="${colH - 1}" fill="${cargo.color.hex}" opacity="0.85" rx="2" stroke="#ffffff" stroke-width="0.8" />
+                            `;
+                        }
+                        svgTopContent += `
+                            <text x="${x + rowW/2}" y="${marginY + drawHeightTop/2 + 3}" fill="#ffffff" font-size="9" font-weight="bold" text-anchor="middle">${cargo.name.split(' ')[0]}</text>
+                        `;
+                    }
+                    currentX += cargo.length * scaleX;
+                }
+            });
+
+            // Door Gap Area
+            if (currentX < marginX + drawWidth) {
+                const gapWidth = (marginX + drawWidth) - currentX;
+                svgTopContent += `
+                    <g>
+                        <rect x="${currentX}" y="${marginY + 4}" width="${gapWidth}" height="${drawHeightTop - 8}" fill="url(#diagonal-stripe)" opacity="0.4" rx="3"/>
+                        <text x="${currentX + gapWidth/2}" y="${marginY + drawHeightTop/2}" fill="#a1a1aa" font-size="10" text-anchor="middle">門隙: ${plan.doorGap} cm</text>
+                    </g>
+                `;
+            }
+
+            const fullTopSVG = `
+                <svg viewBox="0 0 ${svgWidth} ${svgHeightTop}" class="w-full h-auto max-w-full">
+                    <defs>
+                        <pattern id="diagonal-stripe" width="10" height="10" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+                            <line x1="0" y1="0" x2="0" y2="10" stroke="#475569" stroke-width="3" />
+                        </pattern>
+                    </defs>
+                    ${svgTopContent}
+                </svg>
+            `;
+            document.getElementById('svg-top-container').innerHTML = fullTopSVG;
+
+
+            // 2. SIDE ELEVATION VIEW SVG
+            const drawHeightSide = 130;
+            const scaleYSide = drawHeightSide / container.H;
+
+            let svgSideContent = `
+                <rect x="${marginX}" y="${marginY}" width="${drawWidth}" height="${drawHeightSide}" fill="#0f172a" stroke="#64748b" stroke-width="2" rx="4" />
+                <line x1="${marginX}" y1="${marginY + drawHeightSide}" x2="${marginX + drawWidth}" y2="${marginY + drawHeightSide}" stroke="#475569" stroke-width="4" />
+                <line x1="${marginX}" y1="${marginY}" x2="${marginX}" y2="${marginY + drawHeightSide}" stroke="#3b82f6" stroke-width="3" />
+                <line x1="${marginX + drawWidth}" y1="${marginY}" x2="${marginX + drawWidth}" y2="${marginY + drawHeightSide}" stroke="#ef4444" stroke-width="2" stroke-dasharray="4,4" />
+            `;
+
+            let currXSide = marginX;
+
+            plan.cargoResults.forEach((cargo) => {
+                if (cargo.qty <= 0) return;
+
+                if (plan.primaryPallet && cargo.id === plan.primaryPallet.id) {
+                    if (cargo.rows <= 0) return;
+                    const w = cargo.length * scaleX;
+                    const palletH = cargo.H * scaleYSide;
+                    const yPallet = marginY + drawHeightSide - palletH;
+
+                    // Draw primary pallet block
+                    svgSideContent += `
+                        <g>
+                            <rect x="${currXSide}" y="${yPallet}" width="${w}" height="${palletH}" fill="${cargo.color.hex}" opacity="0.85" rx="2" stroke="#ffffff" stroke-width="1" />
+                            <text x="${currXSide + w/2}" y="${yPallet + palletH/2 + 4}" fill="#ffffff" font-size="10" font-weight="bold" text-anchor="middle">${cargo.name.split(' ')[0]}</text>
+                        </g>
+                    `;
+
+                    // Draw overhead boxes on top in side elevation
+                    const overheadBoxes = plan.cargoResults.filter(c => c.type === 'box' && c.overheadQty > 0);
+                    overheadBoxes.forEach(bBox => {
+                        const ovH = (bBox.overheadLayers * bBox.H) * scaleYSide;
+                        const yOverhead = yPallet - ovH;
+                        svgSideContent += `
+                            <g>
+                                <rect x="${currXSide + 2}" y="${yOverhead}" width="${w - 4}" height="${ovH}" fill="${bBox.color.hex}" opacity="0.9" rx="2" stroke="#ffffff" stroke-width="1" stroke-dasharray="2,2" />
+                                <text x="${currXSide + w/2}" y="${yOverhead + ovH/2 + 3}" fill="#ffffff" font-size="9" font-weight="bold" text-anchor="middle">${bBox.name.split(' ')[0]} 頂部跨疊 (${bBox.overheadQty}箱)</text>
+                            </g>
+                        `;
+                    });
+
+                    currXSide += w;
+                } else if (cargo.effectiveQtyGround > 0 && cargo.rows > 0) {
+                    const w = cargo.length * scaleX;
+                    const stackH = (cargo.layers * cargo.H) * scaleYSide;
+                    const y = marginY + drawHeightSide - stackH;
+
+                    svgSideContent += `
+                        <g>
+                            <rect x="${currXSide}" y="${y}" width="${w}" height="${stackH}" fill="${cargo.color.hex}" opacity="0.85" rx="2" stroke="#ffffff" stroke-width="1" />
+                            <text x="${currXSide + w/2}" y="${y + stackH/2 + 4}" fill="#ffffff" font-size="10" font-weight="bold" text-anchor="middle">${cargo.name.split(' ')[0]} (${cargo.layers}層)</text>
+                        </g>
+                    `;
+                    currXSide += w;
+                }
+            });
+
+            const fullSideSVG = `
+                <svg viewBox="0 0 ${svgWidth} ${svgHeightSide}" class="w-full h-auto max-w-full">
+                    ${svgSideContent}
+                </svg>
+            `;
+            document.getElementById('svg-side-container').innerHTML = fullSideSVG;
+
+            // Render Dynamic Color Legend
+            const legendContainer = document.getElementById('svg-color-legend');
+            if (legendContainer) {
+                legendContainer.innerHTML = cargoItems.map(c => `
+                    <span class="flex items-center gap-1">
+                        <span class="w-3 h-3 rounded-sm inline-block shadow-sm" style="background-color: ${c.color.hex}"></span> 
+                        <span class="text-slate-300 font-medium">${c.name.split(' ')[0]}</span>
+                    </span>
+                `).join('');
+            }
+        }
+
+        function renderBreakdownTable(plan) {
+            const tbody = document.getElementById('breakdown-tbody');
+            if (!tbody) return;
+
+            let html = plan.cargoResults.filter(c => c.qty > 0).map(cargo => {
+                let structureText = `${cargo.rows}排 × ${cargo.colsPerRow}列 × ${cargo.layers}層`;
+                if (cargo.type === 'box') {
+                    if (cargo.overheadQty > 0 && cargo.effectiveQtyGround > 0) {
+                        structureText = `地面:${cargo.rows}排 × ${cargo.colsPerRow}列 (+頂部跨疊 ${cargo.overheadQty} 箱)`;
+                    } else if (cargo.overheadQty > 0 && cargo.effectiveQtyGround === 0) {
+                        structureText = `頂部跨疊收納 ${cargo.overheadQty} 箱 (0排地面)`;
+                    }
+                }
+
+                return `
+                <tr class="hover:bg-slate-800/50 transition">
+                    <td class="p-2.5 font-semibold" style="color: ${cargo.color.hex}">${cargo.name}</td>
+                    <td class="p-2.5">
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-bold ${cargo.type === 'box' ? 'bg-emerald-950 text-emerald-300 border border-emerald-800' : 'bg-blue-950 text-blue-300 border border-blue-800'}">
+                            ${cargo.type === 'box' ? '小箱貨' : '棧板'}
+                        </span>
+                    </td>
+                    <td class="p-2.5 font-mono">${cargo.L} x ${cargo.W} x ${cargo.H}</td>
+                    <td class="p-2.5 font-semibold text-white">${cargo.qty} ${cargo.type === 'box' ? '箱' : '件'}</td>
+                    <td class="p-2.5">${structureText}</td>
+                    <td class="p-2.5 font-mono text-amber-300">${cargo.length} cm</td>
+                    <td class="p-2.5 text-right font-mono">${cargo.weightTotal.toLocaleString()} kg</td>
+                    <td class="p-2.5 text-right font-mono text-emerald-400">${cargo.cbm.toFixed(2)} m³</td>
+                </tr>
+            `}).join('');
+
+            if (plan.cargoResults.every(c => c.qty === 0)) {
+                html = `<tr><td colspan="8" class="p-4 text-center text-slate-500">尚無輸入任何貨物數量</td></tr>`;
+            }
+
+            tbody.innerHTML = html;
+        }
+
+        function updateKPIsAndMath(plan) {
+            const { container, totalWeight, totalCBM, totalCUFT, totalLengthUsed, doorGap } = plan;
+
+            // 1. Weight KPI
+            document.getElementById('kpi-weight-curr').textContent = totalWeight.toLocaleString();
+            document.getElementById('kpi-weight-max').textContent = container.maxWeight.toLocaleString();
+            const weightPct = Math.min(100, (totalWeight / container.maxWeight) * 100);
+            const weightBar = document.getElementById('kpi-weight-bar');
+            weightBar.style.width = `${weightPct}%`;
+            document.getElementById('kpi-weight-pct').textContent = `${weightPct.toFixed(1)}%`;
+
+            const weightStatus = document.getElementById('kpi-weight-status');
+            if (totalWeight > container.maxWeight) {
+                weightStatus.textContent = '超載預警!';
+                weightStatus.className = 'text-red-400 font-bold';
+                weightBar.className = 'h-full bg-red-500';
+            } else {
+                weightStatus.textContent = '載重正常';
+                weightStatus.className = 'text-emerald-400';
+                weightBar.className = 'h-full bg-blue-500';
+            }
+
+            // 2. Volume CBM KPI
+            document.getElementById('kpi-cbm-curr').textContent = totalCBM.toFixed(2);
+            document.getElementById('kpi-cbm-max').textContent = container.maxCBM.toFixed(1);
+            const cbmPct = Math.min(100, (totalCBM / container.maxCBM) * 100);
+            const cbmBar = document.getElementById('kpi-cbm-bar');
+            cbmBar.style.width = `${cbmPct}%`;
+            document.getElementById('kpi-cbm-pct').textContent = `${cbmPct.toFixed(1)}%`;
+
+            const cbmStatus = document.getElementById('kpi-cbm-status');
+            if (totalCBM > container.maxCBM) {
+                cbmStatus.textContent = '容積溢出!';
+                cbmStatus.className = 'text-red-400 font-bold';
+                cbmBar.className = 'h-full bg-red-500';
+            } else {
+                cbmStatus.textContent = '容積正常';
+                cbmStatus.className = 'text-emerald-400';
+                cbmBar.className = 'h-full bg-emerald-500';
+            }
+
+            // 3. CUFT KPI
+            document.getElementById('kpi-cuft-curr').textContent = totalCUFT.toFixed(1);
+
+            // 4. Door Gap KPI
+            document.getElementById('kpi-doorgap-curr').textContent = doorGap;
+            document.getElementById('kpi-length-used').textContent = `${totalLengthUsed} cm`;
+            const lengthBar = document.getElementById('kpi-length-bar');
+            const lengthPct = Math.min(100, (totalLengthUsed / container.L) * 100);
+            lengthBar.style.width = `${lengthPct}%`;
+
+            const gapStatus = document.getElementById('kpi-doorgap-status');
+            if (doorGap < 0) {
+                gapStatus.textContent = `超出 ${Math.abs(doorGap)} cm (無法關門)`;
+                gapStatus.className = 'text-red-400 font-bold';
+                lengthBar.className = 'h-full bg-red-500';
+            } else {
+                gapStatus.textContent = '可安全關門';
+                gapStatus.className = 'text-emerald-400';
+                lengthBar.className = 'h-full bg-amber-500';
+            }
+
+            // Spec labels
+            document.getElementById('spec-dims').textContent = `${container.L} x ${container.W} x ${container.H} cm`;
+            document.getElementById('spec-cbm').textContent = `${container.maxCBM} m³`;
+            document.getElementById('spec-weight').textContent = `${container.maxWeight.toLocaleString()} kg`;
+            document.getElementById('label-side-height').textContent = container.H;
+
+            // Math Validation Texts
+            document.getElementById('math-doorgap-calc').textContent = `L_gap = ${container.L} - ${totalLengthUsed} = ${doorGap} cm`;
+            
+            const freeH = plan.primaryPallet ? container.H - plan.primaryPallet.H : 0;
+            const totalOverheadBoxes = plan.cargoResults.filter(c => c.type === 'box').reduce((sum, c) => sum + (c.overheadQty || 0), 0);
+            document.getElementById('math-overhead-calc').textContent = `H_overhead = ${container.H} - ${plan.primaryPallet ? plan.primaryPallet.H : 0} = ${freeH} cm (跨疊收納 ${totalOverheadBoxes} 箱)`;
+
+            document.getElementById('math-cbm-calc').textContent = `CBM = ${totalCBM.toFixed(2)} m³ / ${container.maxCBM} m³`;
+            document.getElementById('math-weight-calc').textContent = `Weight = ${totalWeight.toLocaleString()} kg / ${container.maxWeight.toLocaleString()} kg`;
+        }
+
+        function updateUI() {
+            const plan = calculateLoadingPlan();
+            render3DContainerAndCargo(plan);
+            renderSVGViews(plan);
+            renderBreakdownTable(plan);
+            updateKPIsAndMath(plan);
+        }
+
+        function attachListeners() {
+            document.getElementById('container-preset').addEventListener('change', updateUI);
+            document.getElementById('toggle-overhead').addEventListener('change', updateUI);
+
+            document.getElementById('reset-btn').addEventListener('click', () => {
+                document.getElementById('container-preset').value = '40HQ';
+                document.getElementById('toggle-overhead').checked = true;
+                cargoItems = [
+                    { id: 'cargo1', type: 'pallet', name: 'Cargo 1 (棧板 A)', L: 100, W: 90, H: 60, weight: 500, qty: 16, color: PALETTE_COLORS[0], isCustom: false },
+                    { id: 'cargo2', type: 'pallet', name: 'Cargo 2 (棧板 B)', L: 150, W: 110, H: 180, weight: 150, qty: 8, color: PALETTE_COLORS[1], isCustom: false },
+                    { id: 'cargo3', type: 'box', name: 'Cargo 3 (小箱貨 C)', L: 90, W: 50, H: 15, weight: 5, qty: 120, color: PALETTE_COLORS[2], isCustom: false }
+                ];
+                cargoCounter = 4;
+                renderCargoInputForms();
+                updateUI();
+            });
+        }
+
+        window.onload = function() {
+            init3DScene();
+            renderCargoInputForms();
+            attachListeners();
+            updateUI(); // Immediate simulation on page open
+        };
+    </script>
+</body>
+</html>
