@@ -20,10 +20,11 @@
       overflow-x: hidden;
     }
 
-    /* 懸停漸變與位移效果 */
+    /* 懸停漸變與底線效果 */
     .case-link {
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
+      text-decoration: none;
     }
 
     .case-link::after {
@@ -41,11 +42,6 @@
     .case-link:hover::after {
       width: 100%;
     }
-
-    /* 模擬 3D 閃爍視覺效果 */
-    .glow-effect {
-      box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
-    }
   </style>
 </head>
 <body class="flex flex-col justify-between p-6 md:p-12 min-h-screen text-slate-900 selection:bg-rose-500 selection:text-white">
@@ -53,17 +49,13 @@
   <!-- Top Navigation & Header -->
   <header class="w-full flex flex-col md:flex-row items-center md:items-start justify-between relative mb-12 md:mb-20">
     
-    <!-- 左上角 RF Logo (向量 SVG 精緻重現) -->
+    <!-- 左上角 RF Logo -->
     <div class="self-start md:self-auto mb-6 md:mb-0 transform hover:scale-105 transition-transform duration-300">
-      <a href="#" class="block bg-[#ba3843] p-2 sm:p-2.5 shadow-md hover:shadow-lg transition-shadow">
+      <a href="index.html" class="block bg-[#ba3843] p-2 sm:p-2.5 shadow-md hover:shadow-lg transition-shadow">
         <svg class="w-16 h-16 sm:w-20 sm:h-20" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <!-- 背景紅色基底 -->
           <rect width="100" height="100" fill="#BA3843"/>
-          <!-- stylized RF Monogram -->
-          <!-- R 字母 -->
           <path d="M 15 15 H 55 C 72 15 72 45 55 45 H 35 V 85 H 15 V 15 Z M 35 30 V 32 H 50 C 56 32 56 30 50 30 H 35 Z" fill="white"/>
           <path d="M 42 43 L 68 85 H 88 L 60 43 Z" fill="white"/>
-          <!-- F 字母橫向整合 -->
           <path d="M 52 50 H 88 V 63 H 52 Z" fill="white"/>
           <path d="M 52 15 H 88 V 28 H 52 Z" fill="white"/>
         </svg>
@@ -72,7 +64,7 @@
 
     <!-- 頁面主要標題：應用案例 -->
     <div class="w-full text-center md:absolute md:left-1/2 md:-translate-x-1/2 md:top-2 pointer-events-none">
-      <h1 class="text-4xl md:text-6xl font-black text-slate-900 tracking-wider font-bold drop-shadow-sm">
+      <h1 class="text-4xl md:text-6xl font-black text-slate-900 tracking-wider drop-shadow-sm">
         應用案例
       </h1>
     </div>
@@ -83,20 +75,20 @@
   <main class="w-full max-w-5xl mx-auto flex-1 flex flex-col justify-center my-8 md:my-16 pl-2 sm:pl-8 md:pl-16">
     <div class="flex flex-col gap-8 md:gap-12 items-start">
       
-      <!-- 案例一：貨櫃疊櫃3D模擬 -->
+      <!-- 案例一：貨櫃疊櫃3D模擬 (點擊直接跳轉) -->
       <div class="group relative">
-        <button onclick="openModal('container3d')" class="case-link text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 hover:text-slate-700 tracking-wide text-left focus:outline-none flex items-center gap-4">
+        <a href="櫃裝載計算與 2D 視覺規劃系統確定版.html" class="case-link text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 hover:text-slate-700 tracking-wide text-left flex items-center gap-4">
           <span>貨櫃疊櫃3D模擬</span>
-          <i class="fa-solid fa-arrow-up-right-from-square text-2xl opacity-0 group-hover:opacity-100 transition-opacity text-slate-700"></i>
-        </button>
+          <i class="fa-solid fa-arrow-right text-2xl opacity-0 group-hover:opacity-100 transition-opacity text-slate-700"></i>
+        </a>
       </div>
 
-      <!-- 案例二：榮富工業_地端HTML介紹 -->
+      <!-- 案例二：榮富工業_地端HTML介紹 (點擊直接跳轉) -->
       <div class="group relative">
-        <button onclick="openModal('rongfuHtml')" class="case-link text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 hover:text-slate-700 tracking-wide text-left focus:outline-none flex items-center gap-4">
+        <a href="榮富工業_地端HTML流程實戰課程_最終修正版.html" class="case-link text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 hover:text-slate-700 tracking-wide text-left flex items-center gap-4">
           <span>榮富工業_地端HTML介紹</span>
-          <i class="fa-solid fa-arrow-up-right-from-square text-2xl opacity-0 group-hover:opacity-100 transition-opacity text-slate-700"></i>
-        </button>
+          <i class="fa-solid fa-arrow-right text-2xl opacity-0 group-hover:opacity-100 transition-opacity text-slate-700"></i>
+        </a>
       </div>
 
     </div>
@@ -107,96 +99,5 @@
     <p>© 榮富工業 Rong Fu Industrial. All Rights Reserved.</p>
   </footer>
 
-  <!-- 互動彈出視窗 Modal (當使用者點擊項目時提供詳細展示) -->
-  <div id="caseModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center p-4 z-50 transition-opacity">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 md:p-8 transform transition-all scale-95 opacity-0 modal-content" id="modalContainer">
-      <div class="flex justify-between items-center border-b pb-4 mb-6">
-        <h3 id="modalTitle" class="text-2xl font-bold text-slate-900">項目名稱</h3>
-        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-2xl p-1 rounded-lg hover:bg-slate-100 transition">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      </div>
-      
-      <div id="modalBody" class="text-slate-700 space-y-4">
-        <!-- 內容動態插入 -->
-      </div>
-
-      <div class="mt-8 flex justify-end gap-3 border-t pt-4">
-        <button onclick="closeModal()" class="px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition">
-          關閉
-        </button>
-        <button id="modalActionBtn" onclick="alert('開啟展示連結或進入系統')" class="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-medium shadow-md transition flex items-center gap-2">
-          <span>前往模擬頁面</span>
-          <i class="fa-solid fa-arrow-right text-xs"></i>
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    // 案例詳細資料設定
-    const caseData = {
-      container3d: {
-        title: '貨櫃疊櫃 3D 模擬系統',
-        description: '本系統提供高精度的貨櫃積載與疊櫃 3D 空間模擬，協助優化物流裝載率、計算重心平衡並防止運送損壞。',
-        features: ['實時 3D 空間排版演算', '智慧重量與重心計算', '匯出最佳裝櫃作業圖表'],
-        btnText: '開啟 3D 模擬器'
-      },
-      rongfuHtml: {
-        title: '榮富工業 _ 地端 HTML 介紹',
-        description: '榮富工業地端伺服器專用簡介面板，包含廠區自動化設備說明、內部系統導覽及離線 HTML 文件展示。',
-        features: ['地端高效能離線瀏覽', '多頁面模組化整合', '系統狀態實時監控'],
-        btnText: '開啟 HTML 介紹頁'
-      }
-    };
-
-    const modal = document.getElementById('caseModal');
-    const modalContainer = document.getElementById('modalContainer');
-    const modalTitle = document.getElementById('modalTitle');
-    const modalBody = document.getElementById('modalBody');
-    const modalActionBtn = document.getElementById('modalActionBtn');
-
-    // 開啟彈窗
-    function openModal(key) {
-      const item = caseData[key];
-      if (!item) return;
-
-      modalTitle.innerText = item.title;
-      modalBody.innerHTML = `
-        <p class="text-base leading-relaxed text-slate-600">${item.description}</p>
-        <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
-          <h4 class="font-bold text-slate-800 mb-2 text-sm uppercase tracking-wider">主要功能特點：</h4>
-          <ul class="list-disc list-inside space-y-1 text-sm text-slate-600">
-            ${item.features.map(f => `<li>${f}</li>`).join('')}
-          </ul>
-        </div>
-      `;
-      modalActionBtn.querySelector('span').innerText = item.btnText;
-
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-      
-      setTimeout(() => {
-        modalContainer.classList.remove('scale-95', 'opacity-0');
-        modalContainer.classList.add('scale-100', 'opacity-100');
-      }, 10);
-    }
-
-    // 關閉彈窗
-    function closeModal() {
-      modalContainer.classList.remove('scale-100', 'opacity-100');
-      modalContainer.classList.add('scale-95', 'opacity-0');
-      
-      setTimeout(() => {
-        modal.classList.remove('flex');
-        modal.classList.add('hidden');
-      }, 200);
-    }
-
-    // 點擊背景遮罩關閉
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) closeModal();
-    });
-  </script>
 </body>
 </html>
