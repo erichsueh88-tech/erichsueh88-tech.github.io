@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>機型規格比較與差異審查系統</title>
+    <!-- 引入 html2canvas 程式庫以支援網頁元素自動截圖為 PNG 圖片 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-parchment: #f8f4eb;
+            --bg-card: #ffffff;
+            --bg-card-alt: #f2ede4;
+            --brass-primary: #c8963e;
+            --brass-light: #e5b869;
+            --brass-dark: #8c6221;
+            --copper-accent: #cb6d3b;
+            --copper-hover: #e07b46;
+            --bronze-dark: #2c221e;
+            --bronze-mid: #4a3b34;
+            --bronze-light: #735e53;
+            --border-brass: #d4af37;
+            --border-muted: #d9cfc1;
+            --diff-bg: #fff1e8;
+            --diff-border: #e06d53;
+            --diff-text: #b83b28;
+            --badge-success-bg: #e8f5e9;
+            --badge-success-text: #2e7d32;
+            --badge-warning-bg: #fff8e1;
+            --badge-warning-text: #f57f17;
+            --shadow-steampunk: 0 4px 12px rgba(44, 34, 30, 0.08);
+            --shadow-inset: inset 0 2px 4px rgba(0, 0, 0, 0.06);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-parchment);
+            color: var(--bronze-dark);
+            line-height: 1.5;
+            padding: 16px;
+            background-image: radial-gradient(var(--border-muted) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        .app-container {
+            max-width: 1440px;
+            margin: 0 auto;
+        }
+
+        header.steampunk-header {
+            background: linear-gradient(135deg, #3d312a 0%, #221a16 100%);
+            color: var(--brass-light);
+            padding: 20px 24px;
+            border-radius: 8px;
+            border: 2px solid var(--brass-primary);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+        }
+
+        header.steampunk-header::after {
+            content: "⚙️ ⚙️";
+            position: absolute;
+            right: 16px;
+            top: 10px;
+            opacity: 0.15;
+            font-size: 32px;
+            letter-spacing: -5px;
+        }
+
+        .header-title h1 {
+            font-size: 24px;
+            font-weight: 800;
+            color: #f7e7c4;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: 1px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        }
+
+        .header-title p {
+            font-size: 13px;
+            color: #d1be9d;
+            margin-top: 4px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            border: 1px solid var(--brass-dark);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(180deg, #da9f38 0%, #b87b20 100%);
+            color: #1a120b;
+            border-color: #f5d089;
+        }
+        .btn-primary:hover {
+            background: linear-gradient(180deg, #e5ab44 0%, #c88726 100%);
+            transform: translateY(-1px);
+        }
+
+        .btn-copper {
+            background: linear-gradient(180deg, #d97724 0%, #b35912 100%);
+            color: #ffffff;
+            border-color: #f39c51;
+        }
+        .btn-copper:hover {
+            background: linear-gradient(180deg, #e58330 0%, #c36318 100%);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(180deg, #ffffff 0%, #ebe3d5 100%);
+            color: var(--bronze-dark);
+            border-color: var(--brass-primary);
+        }
+        .btn-secondary:hover {
+            background: #fdfbf7;
+            border-color: var(--brass-dark);
+        }
+
+        .btn-danger {
+            background: linear-gradient(180deg, #d9534f 0%, #b52b27 100%);
+            color: #fff;
+            border-color: #e67d7a;
+        }
+
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 12px;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .kpi-card {
+            background: var(--bg-card);
+            border: 2px solid var(--border-brass);
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: var(--shadow-steampunk);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .kpi-card::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 5px;
+            background: var(--brass-primary);
+        }
+
+        .kpi-info h4 {
+            font-size: 12px;
+            color: var(--bronze-light);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .kpi-info .kpi-value {
+            font-size: 26px;
+            font-weight: 800;
+            color: var(--bronze-dark);
+            margin-top: 4px;
+        }
+
+        .kpi-icon {
+            font-size: 28px;
+            opacity: 0.8;
+            color: var(--copper-accent);
+        }
+
+        .main-panel {
+            background: var(--bg-card);
+            border: 2px solid var(--border-brass);
+            border-radius: 8px;
+            box-shadow: var(--shadow-steampunk);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .tab-bar {
+            display: flex;
+            background: #2c221e;
+            border-bottom: 2px solid var(--border-brass);
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            padding: 14px 20px;
+            background: transparent;
+            color: #cbbba8;
+            border: none;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            border-right: 1px solid #4a3b34;
+            white-space: nowrap;
+        }
+
+        .tab-btn:hover {
+            background: #3a2e28;
+            color: var(--brass-light);
+        }
+
+        .tab-btn.active {
+            background: var(--bg-card);
+            color: var(--bronze-dark);
+            border-top: 3px solid var(--copper-accent);
+            border-bottom: none;
+        }
+
+        .tab-content {
+            padding: 20px;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding: 12px;
+            background: var(--bg-card-alt);
+            border: 1px solid var(--border-muted);
+            border-radius: 6px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .input-control, .select-control {
+            padding: 8px 12px;
+            border: 1px solid var(--border-brass);
+            border-radius: 4px;
+            background: #ffffff;
+            color: var(--bronze-dark);
+            font-size: 13px;
+            outline: none;
+        }
+
+        .input-control:focus, .select-control:focus {
+            border-color: var(--copper-accent);
+            box-shadow: 0 0 0 2px rgba(203, 109, 59, 0.2);
+        }
+
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            border: 1px solid var(--border-muted);
+            border-radius: 6px;
+        }
+
+        table.steampunk-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            text-align: left;
+            background: #ffffff;
+        }
+
+        table.steampunk-table th {
+            background: #3d312a;
+            color: var(--brass-light);
+            padding: 12px 10px;
+            font-weight: 700;
+            border-bottom: 2px solid var(--border-brass);
+            white-space: nowrap;
+        }
+
+        table.steampunk-table td {
+            padding: 10px;
+            border-bottom: 1px solid var(--border-muted);
+            vertical-align: middle;
+        }
+
+        table.steampunk-table tbody tr:nth-child(even) {
+            background-color: #fcfbfa;
+        }
+
+        table.steampunk-table tbody tr:hover {
+            background-color: #f5efe6;
+        }
+
+        .val-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            background: #f0eae1;
+            border: 1px solid #d9cfc1;
+        }
+
+        .diff-highlight {
+            background-color: var(--diff-bg) !important;
+            border: 1px solid var(--diff-border) !important;
+            color: var(--diff-text) !important;
+            font-weight: bold;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .status-pending { background: var(--badge-warning-bg); color: var(--badge-warning-text); border: 1px solid #ffe082; }
+        .status-approved { background: var(--badge-success-bg); color: var(--badge-success-text); border: 1px solid #a5d6a7; }
+        .status-locked { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+
+        .file-link {
+            color: var(--copper-accent);
+            text-decoration: none;
+            font-weight: bold;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+        }
+
+        .file-link:hover {
+            text-decoration: underline;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(44, 34, 30, 0.7);
+            backdrop-filter: blur(2px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-card {
+            background: var(--bg-card);
+            border: 3px solid var(--border-brass);
+            border-radius: 8px;
+            width: 90%;
+            max-width: 750px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            padding: 24px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--border-brass);
+            padding-bottom: 12px;
+            margin-bottom: 16px;
+        }
+
+        .modal-header h3 {
+            color: var(--bronze-dark);
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group.full-width {
+            grid-column: span 2;
+        }
+
+        .form-group label {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--bronze-mid);
+        }
+
+        .form-footer {
+            margin-top: 20px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            border-top: 1px solid var(--border-muted);
+            padding-top: 16px;
+        }
+
+        .system-guide {
+            background: #ffffff;
+            border: 2px solid var(--border-brass);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 24px;
+        }
+
+        .system-guide h3 {
+            color: var(--bronze-dark);
+            font-size: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid var(--border-muted);
+            padding-bottom: 8px;
+        }
+
+        .guide-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            font-size: 13px;
+        }
+
+        .guide-card {
+            background: var(--bg-card-alt);
+            padding: 14px;
+            border-radius: 6px;
+            border-left: 4px solid var(--brass-primary);
+        }
+
+        @media print {
+            body { background: #fff; color: #000; padding: 0; }
+            .header-actions, .tab-bar, .toolbar, .btn, .no-print { display: none !important; }
+            .main-panel, .kpi-card { border: 1px solid #000; box-shadow: none; }
+            .modal-overlay { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header class="steampunk-header">
+            <div class="header-title">
+                <h1>⚙️ 機型規格比較與差異審查系統</h1>
+                <p>地端單機 / 部門級產品規格審查、差異變更追溯與檔案管理工具</p>
+            </div>
+            <div class="header-actions">
+                <div style="display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.1); padding:4px 8px; border-radius:6px; border:1px solid var(--brass-dark);">
+                    <span style="font-size:12px; color:#d1be9d;">收件同仁:</span>
+                    <select id="headerColleagueSelect" class="select-control" style="padding:4px 8px; font-size:12px; background:#ffffff; color:#000;">
+                        <!-- JS 動態帶入選項 -->
+                    </select>
+                    <button class="btn btn-sm btn-secondary" onclick="openColleagueModal()" title="管理同仁通訊錄">⚙️ 通訊錄</button>
+                    <button class="btn btn-sm btn-copper" onclick="prepareEmailPackage()">📧 打包清單寄送 EMAIL (內文自動帶入)</button>
+                </div>
+
+                <button class="btn btn-secondary" onclick="exportJSON()">💾 備份 (JSON)</button>
+                <button class="btn btn-secondary" onclick="triggerImportJSON()">📂 還原</button>
+                <input type="file" id="jsonFileInput" style="display:none" accept=".json" onchange="importJSON(event)">
+                <button class="btn btn-secondary" onclick="window.print()">🖨️ 列印報表</button>
+            </div>
+        </header>
+
+        <div class="dashboard-grid">
+            <div class="kpi-card">
+                <div class="kpi-info">
+                    <h4>總規格項目數</h4>
+                    <div class="kpi-value" id="kpiTotal">0</div>
+                </div>
+                <div class="kpi-icon">📊</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-info">
+                    <h4>差異項目 (需審核)</h4>
+                    <div class="kpi-value" id="kpiDiff" style="color:var(--copper-accent);">0</div>
+                </div>
+                <div class="kpi-icon">⚠️</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-info">
+                    <h4>待處理解鎖數</h4>
+                    <div class="kpi-value" id="kpiPending" style="color:#f57f17;">0</div>
+                </div>
+                <div class="kpi-icon">⏳</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-info">
+                    <h4>審核完成率</h4>
+                    <div class="kpi-value" id="kpiRate" style="color:#2e7d32;">0%</div>
+                </div>
+                <div class="kpi-icon">✅</div>
+            </div>
+        </div>
+
+        <div class="main-panel">
+            <div class="tab-bar">
+                <button class="tab-btn active" onclick="switchTab('matrixTab', this)">🔍 規格並排比較與差異高亮</button>
+                <button class="tab-btn" onclick="switchTab('crudTab', this)">⚙️ 規格數據維護 (CRUD)</button>
+                <button class="tab-btn" onclick="switchTab('reviewTab', this)">📋 待確認與審查簽核</button>
+            </div>
+
+            <div id="matrixTab" class="tab-content">
+                <div class="toolbar">
+                    <div class="filter-group">
+                        <input type="text" id="matrixSearch" class="input-control" placeholder="搜尋機型、規格名稱..." oninput="renderMatrixTable()">
+                        <select id="matrixCategoryFilter" class="select-control" onchange="renderMatrixTable()">
+                            <option value="">全部分類</option>
+                        </select>
+                        <label style="font-size:13px; font-weight:bold; display:flex; align-items:center; gap:4px; cursor:pointer;">
+                            <input type="checkbox" id="onlyDiffCheck" onchange="renderMatrixTable()"> 僅顯示有差異項目
+                        </label>
+                    </div>
+                    <div>
+                        <button class="btn btn-secondary btn-sm" onclick="exportCSV()">📥 匯出 Excel (CSV)</button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="steampunk-table">
+                        <thead>
+                            <tr>
+                                <th>機型／版本</th>
+                                <th>分類</th>
+                                <th>規格項目</th>
+                                <th>單位</th>
+                                <th>基礎規格值</th>
+                                <th>客製規格值</th>
+                                <th>新版規格值</th>
+                                <th>差異判定</th>
+                                <th>來源文件</th>
+                                <th>確認人</th>
+                            </tr>
+                        </thead>
+                        <tbody id="matrixTableBody">
+                            <!-- Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="crudTab" class="tab-content" style="display:none;">
+                <div class="toolbar">
+                    <div class="filter-group">
+                        <input type="text" id="crudSearch" class="input-control" placeholder="關鍵字搜尋..." oninput="renderCrudTable()">
+                        <button class="btn btn-primary" onclick="openEditModal()">+ 新增規格項目</button>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <button class="btn btn-secondary btn-sm" onclick="loadDemoData()">↺ 載入示範資料</button>
+                        <button class="btn btn-danger btn-sm" onclick="clearAllData()">🗑️ 清空資料</button>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="steampunk-table">
+                        <thead>
+                            <tr>
+                                <th>機型/版本</th>
+                                <th>分類</th>
+                                <th>規格名稱</th>
+                                <th>單位</th>
+                                <th>基 / 客 / 新</th>
+                                <th>來源檔名</th>
+                                <th>檔案操作</th>
+                                <th>確認人</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="crudTableBody">
+                            <!-- Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="reviewTab" class="tab-content" style="display:none;">
+                <div class="toolbar">
+                    <div class="filter-group">
+                        <select id="reviewStatusFilter" class="select-control" onchange="renderReviewTable()">
+                            <option value="">全部審查狀態</option>
+                            <option value="待確認">待確認</option>
+                            <option value="已核准">已核准</option>
+                            <option value="已鎖定">已鎖定</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="steampunk-table">
+                        <thead>
+                            <tr>
+                                <th>機型與規格項目</th>
+                                <th>變更原因 / 備註</th>
+                                <th>規格值 (基 | 客 | 新)</th>
+                                <th>確認人</th>
+                                <th>審查狀態</th>
+                                <th>快速審查簽核</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reviewTableBody">
+                            <!-- Dynamic Content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <section class="system-guide">
+            <h3>⚙️ 系統操作說明與企業內網 (A/B/C) 升級建議路線</h3>
+            <div class="guide-grid">
+                <div class="guide-card">
+                    <h4>📍 目前架構：B層級 (部門共用單檔原型)</h4>
+                    <ul>
+                        <li>全單一 HTML 檔案，離線直接雙擊瀏覽器運作。</li>
+                        <li>資料保存在 LocalStorage，支援檔案上傳轉 Base64 保存與完整還原下載。</li>
+                        <li>支援自動將比較清單**渲染為圖片 (PNG)** 複製到剪貼簿，直接快捷貼入 Gmail 郵件中。</li>
+                    </ul>
+                </div>
+                <div class="guide-card">
+                    <h4>🚀 升級路徑 A：本機伺服器 (Node.js Express / Python Flask)</h4>
+                    <ul>
+                        <li>架設輕量內網服務，實體檔案存於伺服器硬碟，解除 LocalStorage 限制。</li>
+                        <li>自動生成圖面與 BOM 比對 PDF 報表。</li>
+                    </ul>
+                </div>
+                <div class="guide-card">
+                    <h4>🏢 升級路徑 C：企業級 SQL 資料庫與權限整合</h4>
+                    <ul>
+                        <li>搭配 MySQL / PostgreSQL，支援多使用者即時同步與 Audit Log 變更歷程。</li>
+                        <li>整合企業 LDAP / AD 單一簽入 (SSO) 與研發/品保/業務多級簽核工作流。</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Add/Edit Spec Modal -->
+    <div id="specModal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="modalTitle">⚙️ 編輯規格資料</h3>
+                <button class="btn btn-secondary btn-sm" onclick="closeModal('specModal')">✕</button>
+            </div>
+            <form id="specForm" onsubmit="saveSpecItem(event)">
+                <input type="hidden" id="specId">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>機型／版本 *</label>
+                        <input type="text" id="specModel" class="input-control" required placeholder="例：RF-31 萬能銑床">
+                    </div>
+                    <div class="form-group">
+                        <label>規格分類 *</label>
+                        <input type="text" id="specCategory" class="input-control" required placeholder="例：馬達、尺寸、速度">
+                    </div>
+                    <div class="form-group">
+                        <label>規格項目名稱 *</label>
+                        <input type="text" id="specName" class="input-control" required placeholder="例：主軸馬達馬力">
+                    </div>
+                    <div class="form-group">
+                        <label>單位 *</label>
+                        <input type="text" id="specUnit" class="input-control" required placeholder="例：HP, mm, RPM">
+                    </div>
+                    <div class="form-group">
+                        <label>基礎規格值 (Base)</label>
+                        <input type="text" id="specBaseVal" class="input-control" placeholder="例：2.0">
+                    </div>
+                    <div class="form-group">
+                        <label>客製規格值 (Custom)</label>
+                        <input type="text" id="specCustomVal" class="input-control" placeholder="例：3.0">
+                    </div>
+                    <div class="form-group">
+                        <label>新版規格值 (New)</label>
+                        <input type="text" id="specNewVal" class="input-control" placeholder="例：3.0">
+                    </div>
+                    <div class="form-group">
+                        <label>確認人 *</label>
+                        <input type="text" id="specReviewer" class="input-control" required placeholder="例：王工程師">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>資料來源文件 (點擊可調用檔案總管上傳)</label>
+                        <input type="file" id="specFileInput" class="input-control" onchange="handleFileUpload(event)">
+                        <input type="hidden" id="specFileName">
+                        <input type="hidden" id="specFileDataUrl">
+                        <div id="fileUploadStatus" style="font-size:12px; color:var(--copper-accent); margin-top:4px;"></div>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>變更原因 / 備註</label>
+                        <textarea id="specReason" class="input-control" rows="3" placeholder="請說明客製化或版本升級之原因..."></textarea>
+                    </div>
+                </div>
+                <div class="form-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('specModal')">取消</button>
+                    <button type="submit" class="btn btn-primary">儲存規格資料</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Colleague Management Modal -->
+    <div id="colleagueModal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>👥 同仁通訊錄管理</h3>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <button class="btn btn-secondary btn-sm" onclick="resetDefaultColleagues()">↺ 載入預設同仁</button>
+                    <button class="btn btn-secondary btn-sm" onclick="closeModal('colleagueModal')">✕</button>
+                </div>
+            </div>
+            <div style="margin-bottom:16px;">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>姓名 *</label>
+                        <input type="text" id="newCollName" class="input-control" placeholder="張工程師">
+                    </div>
+                    <div class="form-group">
+                        <label>部門</label>
+                        <input type="text" id="newCollDept" class="input-control" placeholder="研發部">
+                    </div>
+                    <div class="form-group full-width">
+                        <label>電子郵件 (Email) *</label>
+                        <div style="display:flex; gap:8px;">
+                            <input type="email" id="newCollEmail" class="input-control" style="flex:1;" placeholder="chang.rd@company.com">
+                            <button class="btn btn-primary" onclick="addColleague()">新增同仁</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="steampunk-table">
+                    <thead>
+                        <tr>
+                            <th>姓名</th>
+                            <th>部門</th>
+                            <th>Email</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="colleagueTableBody">
+                        <!-- Dynamic list populated via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Packaging Confirmation Modal -->
+    <div id="emailConfirmModal" class="modal-overlay">
+        <div class="modal-card" style="max-width:750px;">
+            <div class="modal-header">
+                <h3>📧 打包清單並開啟 Gmail (自動帶入信件內文)</h3>
+                <button class="btn btn-secondary btn-sm" onclick="closeModal('emailConfirmModal')">✕</button>
+            </div>
+            <div style="font-size:14px; line-height:1.6; color:var(--bronze-dark);">
+                <p style="margin-bottom:8px;"><strong>收件同仁：</strong> <span id="confirmRecipient"></span></p>
+                <p style="margin-bottom:8px;"><strong>寄送處理方式：</strong> <span style="color:#2e7d32; font-weight:bold;">⚡ 內容已自動排版並直接帶入 Gmail 信件內文 (無需手動貼上)</span></p>
+
+                <div style="background:var(--bg-card-alt); padding:12px; border-radius:6px; border:1px solid var(--border-muted); margin-bottom:12px;">
+                    <p style="margin-bottom:6px;"><strong>郵件主旨：</strong></p>
+                    <p id="emailSubjectPreview" style="color:var(--bronze-mid); font-family:monospace; font-size:12px; margin-bottom:12px; font-weight:bold;"></p>
+                    
+                    <p style="margin-bottom:6px;"><strong>自動帶入 Gmail 的信件內文與對照數據預覽：</strong></p>
+                    <div id="emailBodyTextPreview" style="white-space:pre-wrap; font-family:monospace; font-size:12px; max-height:220px; overflow-y:auto; background:#ffffff; padding:12px; border:1px solid var(--border-muted); border-radius:4px; color:#2c221e;"></div>
+                </div>
+
+                <div style="font-size:12px; color:#2e7d32; background:#e8f5e9; padding:10px 12px; border-radius:6px; border:1px solid #a5d6a7; margin-bottom:16px; line-height:1.5;">
+                    ✅ <strong>完全免手動貼上：</strong><br>
+                    點擊下方「🚀 直接開啟 Gmail 寄送」後，Gmail 寫信視窗開啟時，**信件內文中即已具備完整的規格對照表與數據**！
+                </div>
+            </div>
+            <div class="form-footer">
+                <button class="btn btn-secondary" onclick="closeModal('emailConfirmModal')">取消</button>
+                <button class="btn btn-copper" onclick="executeSendEmail()">🚀 直接開啟 Gmail 寄送 (免貼上)</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'spec_data_v2';
+        const COLLEAGUE_KEY = 'colleagues_v1';
+
+        const defaultDemoData = [
+            {
+                id: 'RF-SPEC-001',
+                model: 'RF-31 萬能銑床',
+                category: '馬達與動力',
+                name: '主軸馬達功率',
+                unit: 'HP',
+                baseVal: '2.0',
+                customVal: '3.0',
+                newVal: '3.0',
+                reason: '客戶加工硬質合金，要求提升高負載切削能力。',
+                reviewer: '陳研發',
+                status: '待確認',
+                fileName: 'RF31_Motor_Spec_v2.pdf',
+                fileDataUrl: 'data:text/plain;base64,UkYtMzEgTW90b3IgU3BlY2lmaWNhdGlvbiBEb2N1bWVudA=='
+            },
+            {
+                id: 'RF-SPEC-002',
+                model: 'RF-31 萬能銑床',
+                category: '尺寸與行程',
+                name: '工作台尺寸 (長x寬)',
+                unit: 'mm',
+                baseVal: '840 x 210',
+                customVal: '1000 x 240',
+                newVal: '1000 x 240',
+                reason: '加大加工範圍，因應新版標準模具需求。',
+                reviewer: '張工程師',
+                status: '已核准',
+                fileName: 'Table_Drawing_RF31.dwg',
+                fileDataUrl: 'data:text/plain;base64,RFdHIERyYXdpbmcgRmlsZSBDb250ZW50'
+            },
+            {
+                id: 'RF-SPEC-003',
+                model: 'RF-250 帶鋸機',
+                category: '速度與傳動',
+                name: '鋸帶線速度',
+                unit: 'm/min',
+                baseVal: '25/40/60/80',
+                customVal: '20-100 (變頻)',
+                newVal: '20-100 (變頻)',
+                reason: '改用無段變頻控制，降低鋸切噪音與損耗。',
+                reviewer: '林品保',
+                status: '已鎖定',
+                fileName: 'Inverter_Test_Report.pdf',
+                fileDataUrl: 'data:text/plain;base64,SW52ZXJ0ZXIgVGVzdCBSZXBvcnQgRGF0YQ=='
+            },
+            {
+                id: 'RF-SPEC-004',
+                model: 'RF-250 帶鋸機',
+                category: '容量與規格',
+                name: '90度圓鋼切削能力',
+                unit: 'mm',
+                baseVal: '250',
+                customVal: '250',
+                newVal: '250',
+                reason: '維持原有切削能力標準。',
+                reviewer: '陳研發',
+                status: '已核准',
+                fileName: '',
+                fileDataUrl: ''
+            },
+            {
+                id: 'RF-SPEC-005',
+                model: 'RF-150 攻牙機',
+                category: '安全與認證',
+                name: '安規認證等級',
+                unit: '標準',
+                baseVal: 'CE 認證',
+                customVal: 'CE + UL 雙認證',
+                newVal: 'CE + UL 雙認證',
+                reason: '外銷北美市場必備安規規格升級。',
+                reviewer: '黃業務',
+                status: '待確認',
+                fileName: 'UL_Certification_Doc.pdf',
+                fileDataUrl: 'data:text/plain;base64,VUwgQ2VydGlmaWNhdGlvbiBEb2N1bWVudA=='
+            }
+        ];
+
+        const defaultColleagues = [
+            { name: '薛', dept: '管理部', email: 'eric.hsueh88@gmail.com' },
+            { name: '張研發', dept: '研發部', email: 'chang.rd@company.com' },
+            { name: '陳品保', dept: '品保課', email: 'chen.qa@company.com' },
+            { name: '林業務', dept: '業務部', email: 'lin.sales@company.com' }
+        ];
+
+        // APP STATE
+        let specData = [];
+        let colleagueList = [];
+        let currentUploadedFile = { name: '', dataUrl: '' };
+
+        window.onload = function() {
+            loadData();
+            loadColleagues();
+            renderAllViews();
+        };
+
+        function loadData() {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            if (stored) {
+                try {
+                    specData = JSON.parse(stored);
+                } catch(e) {
+                    specData = [...defaultDemoData];
+                }
+            } else {
+                specData = [...defaultDemoData];
+                saveData();
+            }
+        }
+
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(specData));
+        }
+
+        function loadColleagues() {
+            const stored = localStorage.getItem(COLLEAGUE_KEY);
+            if (stored) {
+                try { 
+                    colleagueList = JSON.parse(stored); 
+                    if (!Array.isArray(colleagueList) || colleagueList.length === 0) {
+                        colleagueList = [...defaultColleagues];
+                        saveColleagues();
+                    }
+                } catch(e) { 
+                    colleagueList = [...defaultColleagues]; 
+                    saveColleagues();
+                }
+            } else {
+                colleagueList = [...defaultColleagues];
+                saveColleagues();
+            }
+            populateColleagueSelect();
+        }
+
+        function saveColleagues() {
+            localStorage.setItem(COLLEAGUE_KEY, JSON.stringify(colleagueList));
+            populateColleagueSelect();
+        }
+
+        function populateColleagueSelect() {
+            const select = document.getElementById('headerColleagueSelect');
+            if(!select) return;
+            select.innerHTML = '';
+            
+            if (!colleagueList || colleagueList.length === 0) {
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = '-- 尚無同仁資料 (請點擊通訊錄新增) --';
+                select.appendChild(opt);
+                return;
+            }
+
+            colleagueList.forEach((c) => {
+                const opt = document.createElement('option');
+                opt.value = c.email;
+                opt.textContent = `${c.name} (${c.dept}) - ${c.email}`;
+                select.appendChild(opt);
+            });
+        }
+
+        function openColleagueModal() {
+            renderColleagueTable();
+            document.getElementById('colleagueModal').classList.add('active');
+        }
+
+        function renderColleagueTable() {
+            const tbody = document.getElementById('colleagueTableBody');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+            if (colleagueList.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--bronze-light); padding:12px;">尚無同仁通訊資料</td></tr>';
+                return;
+            }
+            colleagueList.forEach((c, idx) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${escapeHtml(c.name)}</td>
+                    <td>${escapeHtml(c.dept)}</td>
+                    <td>${escapeHtml(c.email)}</td>
+                    <td><button class="btn btn-danger btn-sm" onclick="removeColleague(${idx})">刪除</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function addColleague() {
+            const name = document.getElementById('newCollName').value.trim();
+            const dept = document.getElementById('newCollDept').value.trim();
+            const email = document.getElementById('newCollEmail').value.trim();
+
+            if (!name || !email) {
+                alert('請填寫同仁姓名與電子郵件！');
+                return;
+            }
+
+            colleagueList.push({ name, dept, email });
+            saveColleagues();
+            renderColleagueTable();
+
+            document.getElementById('newCollName').value = '';
+            document.getElementById('newCollDept').value = '';
+            document.getElementById('newCollEmail').value = '';
+        }
+
+        function removeColleague(idx) {
+            colleagueList.splice(idx, 1);
+            saveColleagues();
+            renderColleagueTable();
+        }
+
+        function resetDefaultColleagues() {
+            if (confirm('是否重設並載入預設同仁通訊錄資料？')) {
+                colleagueList = [...defaultColleagues];
+                saveColleagues();
+                renderColleagueTable();
+            }
+        }
+
+        function renderAllViews() {
+            updateKPIs();
+            renderMatrixTable();
+            renderCrudTable();
+            renderReviewTable();
+            updateCategoryFilterOptions();
+        }
+
+        function updateKPIs() {
+            const total = specData.length;
+            let diffCount = 0;
+            let pendingCount = 0;
+            let lockedOrApproved = 0;
+
+            specData.forEach(item => {
+                if (item.baseVal !== item.customVal || item.baseVal !== item.newVal) diffCount++;
+                if (item.status === '待確認') pendingCount++;
+                if (item.status === '已核准' || item.status === '已鎖定') lockedOrApproved++;
+            });
+
+            document.getElementById('kpiTotal').textContent = total;
+            document.getElementById('kpiDiff').textContent = diffCount;
+            document.getElementById('kpiPending').textContent = pendingCount;
+            document.getElementById('kpiRate').textContent = total > 0 ? Math.round((lockedOrApproved / total) * 100) + '%' : '0%';
+        }
+
+        function updateCategoryFilterOptions() {
+            const filter = document.getElementById('matrixCategoryFilter');
+            if(!filter) return;
+            const currentVal = filter.value;
+            const categories = [...new Set(specData.map(i => i.category))];
+            
+            filter.innerHTML = '<option value="">全部分類</option>';
+            categories.forEach(cat => {
+                const opt = document.createElement('option');
+                opt.value = cat;
+                opt.textContent = cat;
+                filter.appendChild(opt);
+            });
+            filter.value = currentVal;
+        }
+
+        function renderMatrixTable() {
+            const tbody = document.getElementById('matrixTableBody');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+
+            const search = document.getElementById('matrixSearch').value.toLowerCase();
+            const cat = document.getElementById('matrixCategoryFilter').value;
+            const onlyDiff = document.getElementById('onlyDiffCheck').checked;
+
+            const filtered = specData.filter(item => {
+                const matchesSearch = item.model.toLowerCase().includes(search) || item.name.toLowerCase().includes(search);
+                const matchesCat = !cat || item.category === cat;
+                const hasDiff = item.baseVal !== item.customVal || item.baseVal !== item.newVal;
+                const matchesDiff = !onlyDiff || hasDiff;
+                return matchesSearch && matchesCat && matchesDiff;
+            });
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:var(--bronze-light); padding:20px;">無符合條件之規格資料</td></tr>';
+                return;
+            }
+
+            filtered.forEach(item => {
+                const isDiff = (item.baseVal !== item.customVal) || (item.baseVal !== item.newVal);
+                const tr = document.createElement('tr');
+                if (isDiff) tr.className = 'diff-highlight';
+
+                const fileHTML = item.fileName ? 
+                    `<a class="file-link" onclick="downloadAttachment('${item.id}')">📄 ${escapeHtml(item.fileName)}</a>` : 
+                    '<span style="color:#aaa;">無檔</span>';
+
+                tr.innerHTML = `
+                    <td><strong>${escapeHtml(item.model)}</strong></td>
+                    <td><span class="val-badge">${escapeHtml(item.category)}</span></td>
+                    <td>${escapeHtml(item.name)}</td>
+                    <td>${escapeHtml(item.unit)}</td>
+                    <td>${escapeHtml(item.baseVal)}</td>
+                    <td>${escapeHtml(item.customVal)}</td>
+                    <td>${escapeHtml(item.newVal)}</td>
+                    <td>${isDiff ? '<span style="color:var(--diff-text); font-weight:bold;">⚠️ 有變更</span>' : '<span style="color:green;">✓ 一致</span>'}</td>
+                    <td>${fileHTML}</td>
+                    <td>${escapeHtml(item.reviewer)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderCrudTable() {
+            const tbody = document.getElementById('crudTableBody');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+
+            const search = document.getElementById('crudSearch').value.toLowerCase();
+            const filtered = specData.filter(item => 
+                item.model.toLowerCase().includes(search) || 
+                item.name.toLowerCase().includes(search) ||
+                item.category.toLowerCase().includes(search)
+            );
+
+            filtered.forEach(item => {
+                const tr = document.createElement('tr');
+                const fileDownloadBtn = item.fileDataUrl ? 
+                    `<button class="btn btn-secondary btn-sm" onclick="downloadAttachment('${item.id}')">💾 下載檔案</button>` : 
+                    '<span style="color:#bbb;">無附件</span>';
+
+                tr.innerHTML = `
+                    <td>${escapeHtml(item.model)}</td>
+                    <td><span class="val-badge">${escapeHtml(item.category)}</span></td>
+                    <td><strong>${escapeHtml(item.name)}</strong></td>
+                    <td>${escapeHtml(item.unit)}</td>
+                    <td><small>基:${escapeHtml(item.baseVal)} | 客:${escapeHtml(item.customVal)} | 新:${escapeHtml(item.newVal)}</small></td>
+                    <td>${escapeHtml(item.fileName || '-')}</td>
+                    <td>${fileDownloadBtn}</td>
+                    <td>${escapeHtml(item.reviewer)}</td>
+                    <td>
+                        <button class="btn btn-secondary btn-sm" onclick="openEditModal('${item.id}')">✏️ 編輯</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteSpec('${item.id}')">🗑️ 刪除</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderReviewTable() {
+            const tbody = document.getElementById('reviewTableBody');
+            if(!tbody) return;
+            tbody.innerHTML = '';
+
+            const statusFilter = document.getElementById('reviewStatusFilter').value;
+            const filtered = specData.filter(item => !statusFilter || item.status === statusFilter);
+
+            filtered.forEach(item => {
+                const tr = document.createElement('tr');
+                let statusBadgeClass = 'status-pending';
+                if (item.status === '已核准') statusBadgeClass = 'status-approved';
+                if (item.status === '已鎖定') statusBadgeClass = 'status-locked';
+
+                tr.innerHTML = `
+                    <td>
+                        <div><strong>${escapeHtml(item.model)}</strong></div>
+                        <div style="font-size:12px; color:var(--bronze-light);">${escapeHtml(item.category)} - ${escapeHtml(item.name)}</div>
+                    </td>
+                    <td><span style="font-size:12px; color:var(--bronze-mid);">${escapeHtml(item.reason || '無備註')}</span></td>
+                    <td><small>基:${escapeHtml(item.baseVal)} → 客:${escapeHtml(item.customVal)} → 新:${escapeHtml(item.newVal)} (${escapeHtml(item.unit)})</small></td>
+                    <td>${escapeHtml(item.reviewer)}</td>
+                    <td><span class="status-badge ${statusBadgeClass}">${escapeHtml(item.status)}</span></td>
+                    <td>
+                        <button class="btn btn-secondary btn-sm" onclick="updateStatus('${item.id}', '已核准')">✓ 核准</button>
+                        <button class="btn btn-primary btn-sm" onclick="updateStatus('${item.id}', '已鎖定')">🔒 鎖定</button>
+                        <button class="btn btn-danger btn-sm" onclick="updateStatus('${item.id}', '待確認')">↺ 重設</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                currentUploadedFile = {
+                    name: file.name,
+                    dataUrl: e.target.result
+                };
+                document.getElementById('specFileName').value = file.name;
+                document.getElementById('specFileDataUrl').value = e.target.result;
+                document.getElementById('fileUploadStatus').textContent = `已準備上傳：${file.name} (${Math.round(file.size/1024)} KB)`;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function downloadAttachment(id) {
+            const item = specData.find(i => i.id === id);
+            if (!item || !item.fileDataUrl) {
+                alert('無可下載的附件檔案！');
+                return;
+            }
+            const a = document.createElement('a');
+            a.href = item.fileDataUrl;
+            a.download = item.fileName || 'spec_attachment';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function openEditModal(id = null) {
+            document.getElementById('specForm').reset();
+            document.getElementById('fileUploadStatus').textContent = '';
+            currentUploadedFile = { name: '', dataUrl: '' };
+
+            if (id) {
+                const item = specData.find(i => i.id === id);
+                if (item) {
+                    document.getElementById('specId').value = item.id;
+                    document.getElementById('specModel').value = item.model;
+                    document.getElementById('specCategory').value = item.category;
+                    document.getElementById('specName').value = item.name;
+                    document.getElementById('specUnit').value = item.unit;
+                    document.getElementById('specBaseVal').value = item.baseVal;
+                    document.getElementById('specCustomVal').value = item.customVal;
+                    document.getElementById('specNewVal').value = item.newVal;
+                    document.getElementById('specReviewer').value = item.reviewer;
+                    document.getElementById('specReason').value = item.reason || '';
+                    document.getElementById('specFileName').value = item.fileName || '';
+                    document.getElementById('specFileDataUrl').value = item.fileDataUrl || '';
+                    if (item.fileName) {
+                        document.getElementById('fileUploadStatus').textContent = `目前檔案：${item.fileName}`;
+                    }
+                    document.getElementById('modalTitle').textContent = '⚙️ 編輯規格資料';
+                }
+            } else {
+                document.getElementById('specId').value = '';
+                document.getElementById('modalTitle').textContent = '⚙️ 新增規格資料';
+            }
+            document.getElementById('specModal').classList.add('active');
+        }
+
+        function saveSpecItem(e) {
+            e.preventDefault();
+            const id = document.getElementById('specId').value || 'RF-SPEC-' + Date.now().toString().slice(-4);
+            const model = document.getElementById('specModel').value.trim();
+            const category = document.getElementById('specCategory').value.trim();
+            const name = document.getElementById('specName').value.trim();
+            const unit = document.getElementById('specUnit').value.trim();
+            const baseVal = document.getElementById('specBaseVal').value.trim();
+            const customVal = document.getElementById('specCustomVal').value.trim();
+            const newVal = document.getElementById('specNewVal').value.trim();
+            const reviewer = document.getElementById('specReviewer').value.trim();
+            const reason = document.getElementById('specReason').value.trim();
+            const fileName = document.getElementById('specFileName').value;
+            const fileDataUrl = document.getElementById('specFileDataUrl').value;
+
+            const existingIdx = specData.findIndex(i => i.id === id);
+            const specItem = {
+                id, model, category, name, unit, baseVal, customVal, newVal, reviewer, reason,
+                status: existingIdx >= 0 ? specData[existingIdx].status : '待確認',
+                fileName, fileDataUrl
+            };
+
+            if (existingIdx >= 0) {
+                specData[existingIdx] = specItem;
+            } else {
+                specData.unshift(specItem);
+            }
+
+            saveData();
+            renderAllViews();
+            closeModal('specModal');
+        }
+
+        function deleteSpec(id) {
+            if (confirm('確定要刪除此筆規格項目嗎？刪除後無法恢復。')) {
+                specData = specData.filter(i => i.id !== id);
+                saveData();
+                renderAllViews();
+            }
+        }
+
+        function updateStatus(id, newStatus) {
+            const item = specData.find(i => i.id === id);
+            if (item) {
+                item.status = newStatus;
+                saveData();
+                renderAllViews();
+            }
+        }
+
+        function buildPlainTextEmailBody(colleagueName) {
+            const diffItems = specData.filter(i => i.baseVal !== i.customVal || i.baseVal !== i.newVal);
+            const dateStr = new Date().toLocaleDateString('zh-TW');
+
+            let text = `Dear ${colleagueName || '同仁'},\n\n`;
+            text += `以下為最新【機型規格比較與差異審查】完整對照數據：\n`;
+            text += `================================================================================\n`;
+            text += `📊 【數據摘要】總規格項目：${specData.length} 筆 | 變更差異項目：${diffItems.length} 筆 | 待確認簽核：${specData.filter(i => i.status === '待確認').length} 筆\n`;
+            text += `================================================================================\n\n`;
+
+            text += `⚙️ 規格差異與變更細節對照表：\n`;
+
+            specData.forEach((item, idx) => {
+                const isDiff = (item.baseVal !== item.customVal) || (item.baseVal !== item.newVal);
+                const diffTag = isDiff ? '⚠️【有變更】' : '✓【規格一致】';
+                
+                text += `--------------------------------------------------------------------------------\n`;
+                text += `[項目 ${idx + 1}] ${diffTag}\n`;
+                text += `• 機型／版本：${item.model}\n`;
+                text += `• 規格分類：${item.category} — ${item.name} (${item.unit})\n`;
+                text += `• 規格值對照：基礎值 [ ${item.baseVal} ] ➔ 客製值 [ ${item.customVal} ] ➔ 新版值 [ ${item.newVal} ]\n`;
+                text += `• 變更原因：${item.reason || '無說明'}\n`;
+                text += `• 審查狀態：${item.status} (確認人: ${item.reviewer})\n`;
+                if (item.fileName) {
+                    text += `• 來源文件：${item.fileName}\n`;
+                }
+            });
+
+            text += `--------------------------------------------------------------------------------\n\n`;
+            text += `研發工程處 敬上\n`;
+            text += `通知日期：${dateStr}\n`;
+
+            return text;
+        }
+
+        function prepareEmailPackage() {
+            const select = document.getElementById('headerColleagueSelect');
+            if(!select || !select.value) {
+                alert('請先在左側選單選擇收件同仁，或點擊「⚙️ 通訊錄」新增同仁資料！');
+                return;
+            }
+
+            const email = select.value;
+            const colleague = colleagueList.find(c => c.email === email);
+            const recipientText = colleague ? `${colleague.name} (${colleague.dept}) - ${colleague.email}` : email;
+
+            const subject = `【規格變更審查通知】機型規格比較與差異審查表 (${new Date().toLocaleDateString('zh-TW')})`;
+            const colleagueName = colleague ? colleague.name : '';
+            const textBody = buildPlainTextEmailBody(colleagueName);
+
+            document.getElementById('confirmRecipient').textContent = recipientText;
+            document.getElementById('emailSubjectPreview').textContent = subject;
+            document.getElementById('emailBodyTextPreview').textContent = textBody;
+
+            window._cachedEmailBodyText = textBody;
+            window._cachedEmailSubject = subject;
+            window._cachedEmailTo = email;
+
+            document.getElementById('emailConfirmModal').classList.add('active');
+        }
+
+        function executeSendEmail() {
+            const email = window._cachedEmailTo || '';
+            const subject = window._cachedEmailSubject || '';
+            const textBody = window._cachedEmailBodyText || '';
+
+            const gmailComposeUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(textBody)}`;
+
+            closeModal('emailConfirmModal');
+            window.open(gmailComposeUrl, '_blank');
+        }
+
+        function exportCSV() {
+            let csvContent = "\uFEFF機型/版本,分類,規格項目,單位,基礎規格值,客製規格值,新版規格值,變更原因,確認人,審查狀態,附件檔名\n";
+            specData.forEach(i => {
+                const row = [
+                    `"${i.model}"`, `"${i.category}"`, `"${i.name}"`, `"${i.unit}"`,
+                    `"${i.baseVal}"`, `"${i.customVal}"`, `"${i.newVal}"`,
+                    `"${(i.reason || '').replace(/"/g, '""')}"`, `"${i.reviewer}"`, `"${i.status}"`, `"${i.fileName || ''}"`
+                ];
+                csvContent += row.join(",") + "\n";
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `規格比較表_${new Date().toISOString().slice(0,10)}.csv`;
+            link.click();
+        }
+
+        function exportJSON() {
+            const blob = new Blob([JSON.stringify(specData, null, 2)], { type: 'application/json' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `規格備份_${new Date().toISOString().slice(0,10)}.json`;
+            link.click();
+        }
+
+        function triggerImportJSON() {
+            document.getElementById('jsonFileInput').click();
+        }
+
+        function importJSON(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const imported = JSON.parse(evt.target.result);
+                    if (Array.isArray(imported)) {
+                        specData = imported;
+                        saveData();
+                        renderAllViews();
+                        alert('✅ 資料還原成功！');
+                    } else {
+                        alert('❌ 檔案格式錯誤，須為 JSON 陣列');
+                    }
+                } catch(err) {
+                    alert('❌ 解析失敗：' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function loadDemoData() {
+            if (confirm('是否重設載入預設的 5 筆示範資料？')) {
+                specData = [...defaultDemoData];
+                saveData();
+                renderAllViews();
+            }
+        }
+
+        function clearAllData() {
+            if (confirm('⚠️ 警告：確定要清空所有規格資料嗎？')) {
+                specData = [];
+                saveData();
+                renderAllViews();
+            }
+        }
+
+        function switchTab(tabId, btn) {
+            document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).style.display = 'block';
+            btn.classList.add('active');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.remove('active');
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return String(text)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
